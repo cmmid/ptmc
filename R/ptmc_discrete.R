@@ -17,33 +17,37 @@ NULL
 #' @return Returns a list with the fist element being the mcmc samples formatting for analysis and plottig with the CODA package. The second is the log posterior value at each time step.
 #'
 #' @export
-ptmc_discrete_func <- function(model, data_list, settings, par = NULL) {
+ptmc_discrete_func <- function(model, data, settings, par = NULL) {
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
-    output <- get_discrete_outputB(model, data_list, settings, FALSE, par)
+    output <- get_discrete_outputB(model, data, settings, FALSE, par)
   } else {
-    output <- get_discrete_outputB(model, data_list, settings, TRUE, par)
+    output <- get_discrete_outputB(model, data, settings, TRUE, par)
   }
   output
 }
 
 get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
   nCores <- detectCores() - 1
-  cl <- makeCluster(nCores)
+  cl <- makeCluster(nCores, outfile="")
   registerDoParallel(cl)
+
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTdiscrete <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTlp <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTtemp <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTacc <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTpar <- vector(mode = "list", length = settings[["numberChainRuns"]])
+  out_raw <- list()
 
   # Run the chains in parallel
-  out_raw <- list()
   if (settings[["runParallel"]]) {
-    out_raw <- foreach(i = 1:settings[["numberChainRuns"]], .packages = c('ptmc','coda')) %dopar% {
-      run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
-    }
+    out_raw <- mclapply(1:settings[["numberChainRuns"]], 
+      function(i) {
+        run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
+      },
+      mc.cores = nCores
+    )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {
       out_raw[[i]] <- run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
@@ -58,7 +62,6 @@ get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
     }
     outPTpost[[i]] <- mcmc(out_post)
     outPTdiscrete[[i]] <- out_raw[[i]][["discrete"]]
-  #  cat(out_raw[[i]][["discrete"]])
     outPTlp[[i]] <- out_raw[[i]][["output"]][, settings$numberFittedPar + 1]
     outPTtemp[[i]] <- out_raw[[i]][["output"]][, settings$numberFittedPar + 2]
     outPTacc[[i]] <- out_raw[[i]][["output"]][, settings$numberFittedPar + 3]

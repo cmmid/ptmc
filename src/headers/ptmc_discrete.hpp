@@ -10,6 +10,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <vector>
 #include <random>
+#include <math.h>
 
 #define EIGEN_DONT_VECTORIZE
 #define EIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT
@@ -20,9 +21,14 @@ using namespace Eigen;
 using namespace boost::math;
 // [[Rcpp::plugins("cpp14")]]
 
+#define PI 3.14159265358979323846
 
 #ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b)) // define MAX function for use later
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b)) // define MAX function for use later
 #endif
 
 namespace ptmc_discrete{
@@ -30,6 +36,9 @@ namespace ptmc_discrete{
     {
         PTMC_D() {}
         
+        bool conPropIn = true;
+        bool disPropIn = false;
+
         VectorXd nonadaptiveScalar, adaptiveScalar, lowerParBounds, upperParBounds;
         MatrixXd nonadaptiveCovarianceMat, adaptiveCovarianceMat;
         MatrixXd currentSample, currentSampleMean;
@@ -42,29 +51,30 @@ namespace ptmc_discrete{
         MatrixXi currentDiscrete;
         VectorXi proposalDiscrete;
 
-        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp;
+        VectorXd iPosterior;
+        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp, updateDiscreteFreq;
         int lengthDiscreteVec;
         int numberTempChains, numberFittedPar, numTempChainsNonAdaptive;
         int workingChainNumber, workingIteration;
         bool onDebug, onAdaptiveCov, onAdaptiveTemp;
         bool isSampleAccepted, isProposalAdaptive;
 
-        List dataList;
+        RObject dataList;
         VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
         VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
         double proposedLogPosterior, alpha, initCovarVal;
 
-        std::function<VectorXd()> samplePriorDistributions;
-        std::function<VectorXi()> initialiseDiscrete;
-        std::function<double(VectorXd, VectorXi)> evaluateLogPrior;
-        std::function<VectorXi(VectorXi)> discreteSampling;
-        std::function<double(VectorXd, VectorXi, MatrixXd, List)> evaluateLogLikelihood;
+        std::function<VectorXd(RObject)> samplePriorDistributions;
+        std::function<VectorXi(RObject)> initialiseDiscrete;
+        std::function<double(VectorXd, VectorXi, RObject)> evaluateLogPrior;
+        std::function<VectorXi(VectorXi, RObject)> discreteSampling;
+        std::function<double(VectorXd, VectorXi, MatrixXd, RObject)> evaluateLogLikelihood;
 
         double stepSizeRobbinsMonro;
-        double evalLogPosterior(const VectorXd& param, const VectorXi& discrete, const MatrixXd& covariance, const List& dataList)
+        double evalLogPosterior(const VectorXd& param, const VectorXi& discrete, const MatrixXd& covariance, const RObject& dataList)
         {
-            double logPrior = this->evaluateLogPrior(param, discrete);
+            double logPrior = this->evaluateLogPrior(param, discrete, dataList);
             if (isinf(logPrior))
                 return log(0);
           
@@ -80,13 +90,15 @@ namespace ptmc_discrete{
             x = (1 - x)*(1 + x);
             lnx = logf(x);
             
-            tt1 = 2/(PI*0.147) + 0.5 * lnx;
+            double pi = atan(1)*4;    
+
+            tt1 = 2/(pi*0.147) + 0.5 * lnx;
             tt2 = 1/(0.147) * lnx;
             
             return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
         }
         
-        void initialiseClass(List settings, List dataList)
+        void initialiseClass(List settings, RObject dataList)
         {
             this->dataList = dataList;
             this->numberTempChains = settings["numberTempChains"];
@@ -110,6 +122,8 @@ namespace ptmc_discrete{
 
             this->initCovarVal = settings["initCovarVal"];
 
+            this->updateDiscreteFreq = settings["updateDiscreteFreq"];
+
             this->counterFuncEval = VectorXd::Zero(this->numberTempChains);
             this->counterAccepted = VectorXd::Zero(this->numberTempChains);
             this->counterPosterior = VectorXd::Zero(this->numberTempChains);
@@ -118,6 +132,8 @@ namespace ptmc_discrete{
             this->counterFuncEvalTemp = VectorXd::Zero(this->numberTempChains);
             this->counterAcceptTemp = VectorXd::Zero(this->numberTempChains);
             
+            this->iPosterior = VectorXd::Zero(this->numberTempChains);
+
             this->posteriorSamplesLength = (this->iterations-this->burninPosterior)/(this->thin);
             this->posteriorOut = MatrixXd::Zero(this->posteriorSamplesLength, this->numberFittedPar + 3);
             this->posteriorDiscrete = MatrixXi::Zero(this->posteriorSamplesLength, this->lengthDiscreteVec);
@@ -146,9 +162,9 @@ namespace ptmc_discrete{
             MatrixXd initialCovarianceMatrix;
             
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
-                this->nonadaptiveCovarianceMat(parNum,parNum) = this->initCovarVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                this->nonadaptiveCovarianceMat(parNum,parNum) = (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 for (int chainNum = 0; chainNum < this->numberTempChains; chainNum++){
-                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = this->initCovarVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) =  (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 }
             }
             
@@ -162,15 +178,15 @@ namespace ptmc_discrete{
                 if (chainNum > 0)
                     temperatureLadderParameterised[chainNum-1] = log(temperatureLadder[chainNum]-temperatureLadder[chainNum-1]);
                 
-                initialSample = this->samplePriorDistributions();
+                initialSample = this->samplePriorDistributions(this->dataList);
 
-                initialDiscrete = this->initialiseDiscrete();
+                initialDiscrete = this->initialiseDiscrete(this->dataList);
                 this->currentCovarianceMatrix = this->nonadaptiveScalar(chainNum)*this->nonadaptiveCovarianceMat;
 
                 initialLogLikelihood = this->evalLogPosterior(initialSample, initialDiscrete, this->currentCovarianceMatrix, this->dataList);
                 while(isinf(initialLogLikelihood) || isnan(initialLogLikelihood)){
-                    initialSample = this->samplePriorDistributions();
-                    initialDiscrete = this->initialiseDiscrete();
+                    initialSample = this->samplePriorDistributions(this->dataList);
+                    initialDiscrete = this->initialiseDiscrete(this->dataList);
                     initialLogLikelihood = this->evalLogPosterior(initialSample, initialDiscrete, this->currentCovarianceMatrix, this->dataList);
                 }
 
@@ -184,7 +200,7 @@ namespace ptmc_discrete{
             this->stepSizeRobbinsMonro = (1.0-1.0/(double)this->numberFittedPar)*(pow(2*3.141, 0.5)*exp(alphaMVN*alphaMVN*0.5))/(2*alphaMVN) + 1.0/(this->numberFittedPar*0.234*(1-0.234));
         }
 
-        void updateClass(List settings, List dataList, List PTMCpar)
+        void updateClass(List settings, RObject dataList, List PTMCpar)
         {
             this->dataList = dataList;
 
@@ -298,7 +314,9 @@ namespace ptmc_discrete{
                 if (onDebug) Rcpp::Rcout << "Pre: updateOutputPosterior" << std::endl;
                 updateOutputPosterior();
                 if (onDebug) Rcpp::Rcout << "Pre: updateProposal" << std::endl;
-                updateProposal();
+                if(this->conPropIn) {
+                    updateProposal();
+                }
             }
             if (onDebug) Rcpp::Rcout << "Pre: swapTemperatureChains" << std::endl;
             swapTemperatureChains();
@@ -308,18 +326,29 @@ namespace ptmc_discrete{
         void getAcceptanceRate()
         {
             this->isSampleAccepted = false;
-            double p1 = uniformContinuousDist(0, 1);
-            if (p1 < 0.5)
+            if (this->updateDiscreteFreq == 0) {
                 selectProposalDist();
-            else 
                 DiscreteProposalDist();
-            this->proposedLogPosterior = this->evalLogPosterior(this->proposalSample, this->proposalDiscrete, this->currentCovarianceMatrix, this->dataList);
+                this->proposedLogPosterior = this->evalLogPosterior(this->proposalSample, this->proposalDiscrete, this->currentCovarianceMatrix, this->dataList);
+            } else {
+                double p1 = uniformContinuousDist(0, 1);
+                if (p1 < (1.0 / (1.0 + (double)this->updateDiscreteFreq))) {
+                    this->conPropIn = true; this->disPropIn = false;
+                    selectProposalDist();
+                    this->proposedLogPosterior = this->evalLogPosterior(this->proposalSample, this->proposalDiscrete, this->currentCovarianceMatrix, this->dataList);
+                }
+                else {
+                    this->conPropIn = false; this->disPropIn = true;
+                    DiscreteProposalDist();
+                    this->proposedLogPosterior = this->evalLogPosterior(this->proposalSample, this->proposalDiscrete, this->currentCovarianceMatrix, this->dataList);
+                }
+            }
             evaluateMetropolisRatio();
             this->counterFuncEval[this->workingChainNumber]++;
         }
 
         void DiscreteProposalDist() {
-            this->proposalDiscrete = this->discreteSampling(this->currentDiscrete.row(this->workingChainNumber));
+            this->proposalDiscrete = this->discreteSampling(this->currentDiscrete.row(this->workingChainNumber), this->dataList);
 
         }
         
@@ -335,7 +364,7 @@ namespace ptmc_discrete{
         void generateSampleFromNonAdaptiveProposalDist()
         {
             double s;
-            s = MIN(exp(this->nonadaptiveScalar[this->workingChainNumber])*0.1, 1);
+            s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;
             Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
@@ -347,7 +376,7 @@ namespace ptmc_discrete{
         void generateSampleFromAdaptiveProposalDist()
         {
             double s;
-            s = MIN(exp(this->adaptiveScalar[this->workingChainNumber]), 1);
+            s = exp(this->adaptiveScalar[this->workingChainNumber]);
             this->counterAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = true;
             this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat.block(this->workingChainNumber*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
             Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
@@ -398,23 +427,27 @@ namespace ptmc_discrete{
         {
             int m = this->workingChainNumber;
             int P = this->numberFittedPar;
-
+            // Update adaptive proposal stuff
             if (this->isProposalAdaptive){
-                this->adaptiveScalar[m] += this->stepSizeRobbinsMonro*pow(1+this->counterAdaptive[m],-0.5)*(this->alpha - 0.234);
+                this->adaptiveScalar[m] += this->stepSizeRobbinsMonro * pow(1+this->counterAdaptive[m],-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->adaptiveScalar[m]);
+                trimAdaptiveValues(this->adaptiveScalar[m]);
             }
             else{
-                this->nonadaptiveScalar[m] += this->stepSizeRobbinsMonro*pow(1+this->counterNonAdaptive[m],-0.5)*(this->alpha - 0.234);
+                this->nonadaptiveScalar[m] += this->stepSizeRobbinsMonro * pow(1+this->counterNonAdaptive[m],-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->nonadaptiveScalar[m]);
+                trimNonAdaptiveValues(this->nonadaptiveScalar[m]);
             }
         
-            if(((this->workingIteration)%(this->updatesAdaptiveCov) == 0) && (this->workingIteration > this->burninAdaptiveCov)){
-                int iPosterior = (this->workingIteration-this->burninAdaptiveCov);
-                double gainFactor = pow(1+iPosterior,-0.5);
-                if (iPosterior == this->updatesAdaptiveCov){
+            // Update adaptive proposal stuff
+            if(((this->workingIteration) % (this->updatesAdaptiveCov) == 0) && (this->workingIteration > this->burninAdaptiveCov)){
+                //int iPosterior = (this->workingIteration-this->burninAdaptiveCov);
+                this->iPosterior[m]++;
+                double gainFactor = pow(1+iPosterior[m], -0.5);
+               // if (iPosterior == this->updatesAdaptiveCov){
+                if (iPosterior[m] == 1){
                     this->currentSampleMean.row(m) = this->currentSample.row(m);
                     this->adaptiveScalar[m] = this->nonadaptiveScalar[m];
-                    //this->adaptiveScalar[m] = this->nonadaptiveScalar[m]*this->adaptiveScalar[m];
                 }
                 else{
                     this->currentSampleMean.row(m) = this->currentSampleMean.row(m) + gainFactor*(this->currentSample.row(m)-this->currentSampleMean.row(m));
@@ -423,8 +456,6 @@ namespace ptmc_discrete{
                     errorCheckMatrixValid(this->adaptiveCovarianceMat.block(m*P,0,P,P));
                 }
             }
-        
-            
         }
         
         void swapTemperatureChains()
@@ -442,8 +473,8 @@ namespace ptmc_discrete{
                     }
                     this->temperatureLadderParameterised[p] += pow((1+this->counterFuncEvalTemp[p]),(-0.5))*(alphaTemp - 0.234);
 
-                    if (this->temperatureLadderParameterised[p] < -10)
-                        this->temperatureLadderParameterised[p] = -10; // truncaton so that temperatures aren't too close
+                    if (this->temperatureLadderParameterised[p] < -2)
+                        this->temperatureLadderParameterised[p] = -2; // truncaton so that temperatures aren't too close
                     
                     errorCheckNumberValid(this->temperatureLadderParameterised[p]);
                 }
@@ -460,7 +491,17 @@ namespace ptmc_discrete{
         {
             this->temperatureLadder[m+1] = this->temperatureLadder[m] + exp(this->temperatureLadderParameterised[m]);
         }
+
+        void trimNonAdaptiveValues(double value)
+        {
+            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->initCovarVal), 1e-15));
+        }
         
+        void trimAdaptiveValues(double value)
+        {
+            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->initCovarVal), 1e-15));
+        }
+
         void errorCheckNumberValid(double value)
         {
             if (isinf(value)||isnan(value)){
@@ -513,12 +554,18 @@ namespace ptmc_discrete{
         void swapSamplesandLogPosterior(int p, int q)
         {
             VectorXd swapSampleInterProp, swapSampleInterCurr;
+            VectorXi swapDiscreteInterProp, swapDiscreteInterCurr;
+
             double swapLogPosteriorInterCurr, swapLogPosteriorInterProp;
             
             swapLogPosteriorInterCurr = this->currentLogPosterior(p); swapLogPosteriorInterProp = this->currentLogPosterior(q);
             this->currentLogPosterior(p) = swapLogPosteriorInterProp; this->currentLogPosterior(q) = swapLogPosteriorInterCurr;
             swapSampleInterCurr = this->currentSample.row(p); swapSampleInterProp = this->currentSample.row(q);
             this->currentSample.row(p) = swapSampleInterProp; this->currentSample.row(q) = swapSampleInterCurr;
+            
+            swapDiscreteInterCurr = this->currentDiscrete.row(p); swapDiscreteInterProp = this->currentDiscrete.row(q);
+            this->currentDiscrete.row(p) = swapDiscreteInterProp; this->currentDiscrete.row(q) = swapDiscreteInterCurr;
+
         }
                 
         double uniformContinuousDist(double minValue, double maxValue)
@@ -542,6 +589,57 @@ namespace ptmc_discrete{
             }
         }
     };
+
+    void init_samplePriorDistributions_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function samplePriorDistributions) {
+        auto func = [samplePriorDistributions](RObject dataList) {
+            PutRNGstate();
+            auto rData = samplePriorDistributions(dataList);
+            GetRNGstate();
+            return Rcpp::as<VectorXd>(rData);
+        };
+        model->samplePriorDistributions = func;
+    }
+
+    void init_evaluateLogPrior_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function evaluateLogPrior) {
+        auto func = [evaluateLogPrior](VectorXd params, VectorXi discrete, RObject dataList) {
+            PutRNGstate();
+            auto rData = evaluateLogPrior(params, discrete, dataList);
+            GetRNGstate();
+            return Rcpp::as<double>(rData);
+        };
+        model->evaluateLogPrior = func;
+    }
+
+    void init_evaluateLogLikelihood_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function evaluateLogLikelihood) {
+        auto func = [evaluateLogLikelihood](VectorXd params, VectorXi discrete, MatrixXd covariance, RObject dataList) {
+            PutRNGstate();
+            auto rData = evaluateLogLikelihood(params, discrete, covariance, dataList);
+            GetRNGstate();
+            return Rcpp::as<double>(rData);
+        };
+        model->evaluateLogLikelihood = func;
+    }
+
+    void init_initialiseDiscrete_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function initialiseDiscrete) {
+        auto func = [initialiseDiscrete](RObject dataList) {
+            PutRNGstate();
+            auto rData = initialiseDiscrete(dataList);
+            GetRNGstate();
+            return Rcpp::as<VectorXi>(rData);
+        };
+        model->initialiseDiscrete = func;
+    }
+
+    void init_discreteSampling_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function discreteSampling) {
+        auto func = [discreteSampling](VectorXi discrete, RObject dataList) {
+            PutRNGstate();
+            auto rData = discreteSampling(discrete, dataList);
+            GetRNGstate();
+            return Rcpp::as<VectorXi>(rData);
+        };
+        model->discreteSampling = func;
+    }
+
 };
 // namespace ptmc
 #endif

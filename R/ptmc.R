@@ -38,11 +38,14 @@ get_outputB <- function(model, data_list, settings, update_ind, par) {
   outPTpar <- vector(mode = "list", length = settings[["numberChainRuns"]])
 
   # Run the chains in parallel
-  out_raw <- list()
+  # Run the chains in parallel
   if (settings[["runParallel"]]) {
-    out_raw <- foreach(i = 1:settings[["numberChainRuns"]], .packages = c('ptmc','coda')) %dopar% {
-      run_ptmc(model, data_list, settings, update_ind, par[[i]])
-    }
+    out_raw <- mclapply(1:settings[["numberChainRuns"]], 
+      function(i) {
+        run_ptmc(model, data_list, settings, update_ind, par[[i]])
+      },
+      mc.cores = nCores
+    )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {
       out_raw[[i]] <- run_ptmc(model, data_list, settings, update_ind, par[[i]])

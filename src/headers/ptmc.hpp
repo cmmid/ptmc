@@ -25,6 +25,11 @@ using namespace boost::math;
 #define MIN(a,b) ((a) < (b) ? (a) : (b)) // define MAX function for use later
 #endif
 
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b)) // define MAX function for use later
+#endif
+#define PI 3.14159265358979323846
+
 namespace ptmc{
     struct PTMC
     {
@@ -44,7 +49,7 @@ namespace ptmc{
         bool onDebug, onAdaptiveCov, onAdaptiveTemp;
         bool isSampleAccepted, isProposalAdaptive;
 
-        List dataList;
+        RObject dataList;
         VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
         VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
@@ -52,10 +57,10 @@ namespace ptmc{
 
         std::function<VectorXd()> samplePriorDistributions;
         std::function<double(VectorXd)> evaluateLogPrior;
-        std::function<double(VectorXd, MatrixXd, List)> evaluateLogLikelihood;
+        std::function<double(VectorXd, MatrixXd, RObject)> evaluateLogLikelihood;
 
-        double stepSizeRobbinsMonro;
-        double evalLogPosterior(const VectorXd& param, const MatrixXd& covariance, const List& dataList)
+        double stepSizeRobbinsMonro;  
+        double evalLogPosterior(const VectorXd& param, const MatrixXd& covariance, const RObject& dataList)
         {
             double logPrior = this->evaluateLogPrior(param);
             if (isinf(logPrior))
@@ -79,7 +84,7 @@ namespace ptmc{
             return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
         }
         
-        void initialiseClass(List settings, List dataList)
+        void initialiseClass(List settings, RObject dataList)
         {
             this->dataList = dataList;
             this->numberTempChains = settings["numberTempChains"];
@@ -165,7 +170,7 @@ namespace ptmc{
             this->stepSizeRobbinsMonro = (1.0-1.0/(double)this->numberFittedPar)*(pow(2*3.141, 0.5)*exp(alphaMVN*alphaMVN*0.5))/(2*alphaMVN) + 1.0/(this->numberFittedPar*0.234*(1-0.234));
         }
 
-        void updateClass(List settings, List dataList, List PTMCpar)
+        void updateClass(List settings, RObject dataList, List PTMCpar)
         {
             this->dataList = dataList;
 
@@ -301,7 +306,7 @@ namespace ptmc{
         void generateSampleFromNonAdaptiveProposalDist()
         {
             double s;
-            s = MIN(exp(this->nonadaptiveScalar[this->workingChainNumber])*0.1, 1);
+            s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;
             Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
@@ -313,7 +318,7 @@ namespace ptmc{
         void generateSampleFromAdaptiveProposalDist()
         {
             double s;
-            s = MIN(exp(this->adaptiveScalar[this->workingChainNumber]), 1);
+            s = exp(this->adaptiveScalar[this->workingChainNumber]);
             this->counterAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = true;
             this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat.block(this->workingChainNumber*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
             Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
@@ -364,10 +369,12 @@ namespace ptmc{
             if (this->isProposalAdaptive){
                 this->adaptiveScalar[m] += this->stepSizeRobbinsMonro*pow(1+this->counterAdaptive[m],-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->adaptiveScalar[m]);
+                trimAdaptiveValues(this->adaptiveScalar[m]);
             }
             else{
                 this->nonadaptiveScalar[m] += this->stepSizeRobbinsMonro*pow(1+this->counterNonAdaptive[m],-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->nonadaptiveScalar[m]);
+                trimNonAdaptiveValues(this->nonadaptiveScalar[m]);
             }
         
             if(((this->workingIteration)%(this->updatesAdaptiveCov) == 0) && (this->workingIteration > this->burninAdaptiveCov)){
@@ -423,6 +430,17 @@ namespace ptmc{
             this->temperatureLadder[m+1] = this->temperatureLadder[m] + exp(this->temperatureLadderParameterised[m]);
         }
         
+        void trimNonAdaptiveValues(double value)
+        {
+            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->initCovarVal), 1e-15));
+        }
+        
+        void trimAdaptiveValues(double value)
+        {
+            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->initCovarVal), 1e-15));
+        }
+
+
         void errorCheckNumberValid(double value)
         {
             if (isinf(value)||isnan(value)){
@@ -504,6 +522,36 @@ namespace ptmc{
             }
         }
     };
+
+    void init_samplePriorDistributions(ptmc::PTMC* model, Rcpp::Function samplePriorDistributions) {
+        auto func = [samplePriorDistributions]() {
+            PutRNGstate();
+            auto rData = samplePriorDistributions();
+            GetRNGstate();
+            return Rcpp::as<VectorXd>(rData);
+        };
+        model->samplePriorDistributions = func;
+    }
+
+    void init_evaluateLogPrior(ptmc::PTMC* model, Rcpp::Function evaluateLogPrior) {
+        auto func = [evaluateLogPrior](VectorXd params) {
+            PutRNGstate();
+            auto rData = evaluateLogPrior(params);
+            GetRNGstate();
+            return Rcpp::as<double>(rData);
+        };
+        model->evaluateLogPrior = func;
+    }
+
+    void init_evaluateLogLikelihood(ptmc::PTMC* model, Rcpp::Function evaluateLogLikelihood) {
+        auto func = [evaluateLogLikelihood](VectorXd params, MatrixXd covariance, RObject dataList) {
+            PutRNGstate();
+            auto rData = evaluateLogLikelihood(params, covariance, dataList);
+            GetRNGstate();
+            return Rcpp::as<double>(rData);
+        };
+        model->evaluateLogLikelihood = func;
+    }
 };
 // namespace ptmc
 #endif
