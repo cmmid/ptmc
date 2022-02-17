@@ -63,7 +63,7 @@ namespace ptmc_discrete{
         VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
         VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
-        double proposedLogPosterior, alpha, initCovarVal;
+        double proposedLogPosterior, alpha, covarMaxVal, covarInitVal;
 
         std::function<VectorXd(RObject)> samplePriorDistributions;
         std::function<VectorXi(RObject)> initialiseDiscrete;
@@ -120,7 +120,8 @@ namespace ptmc_discrete{
             this->lowerParBounds = settings["lowerParBounds"];
             this->upperParBounds = settings["upperParBounds"];
 
-            this->initCovarVal = settings["initCovarVal"];
+            this->covarInitVal = settings["covarInitVal"];
+            this->covarMaxVal = settings["covarMaxVal"];
 
             this->updateDiscreteFreq = settings["updateDiscreteFreq"];
 
@@ -162,9 +163,9 @@ namespace ptmc_discrete{
             MatrixXd initialCovarianceMatrix;
             
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
-                this->nonadaptiveCovarianceMat(parNum,parNum) = (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                this->nonadaptiveCovarianceMat(parNum,parNum) = this->covarInitVal*(this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 for (int chainNum = 0; chainNum < this->numberTempChains; chainNum++){
-                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) =  (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 }
             }
             
@@ -364,6 +365,7 @@ namespace ptmc_discrete{
         void generateSampleFromNonAdaptiveProposalDist()
         {
             double s;
+            trimNonAdaptiveValues(this->nonadaptiveScalar[this->workingChainNumber]);
             s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;
@@ -494,12 +496,12 @@ namespace ptmc_discrete{
 
         void trimNonAdaptiveValues(double value)
         {
-            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->initCovarVal), 1e-15));
+            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->covarMaxVal), 1e-25));
         }
         
         void trimAdaptiveValues(double value)
         {
-            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->initCovarVal), 1e-15));
+            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->covarMaxVal), 1e-25));
         }
 
         void errorCheckNumberValid(double value)

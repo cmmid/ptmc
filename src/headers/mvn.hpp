@@ -85,6 +85,9 @@ public:
         while (parOOS){
             j++;
             sampleCheck = sample(nr_iterations);
+            if (onDebug) {
+                Rcpp::Rcout << sampleCheck << std::endl;
+            }
             checkTrunc(sampleCheck, lowerBound, upperBound, parOOS);
             if (onDebug && (j == 1e6)) 
                 Rcpp::Rcout << "Struggling to sample points." << std::endl;

@@ -145,7 +145,7 @@ settings <-  list(
   burninPosterior = 1,
   thin = 1,
   consoleUpdates = 1,
-  numberFittedPar = 2,        
+  numberFittedPar = 2,
   onAdaptiveCov = TRUE,
   updatesAdaptiveCov = 1,
   burninAdaptiveCov = 1000,
