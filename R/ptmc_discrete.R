@@ -18,6 +18,9 @@ NULL
 #'
 #' @export
 ptmc_discrete_func <- function(model, data, settings, par = NULL) {
+  if (is.null(settings[["numberCores"]])) {
+    settings[["numberCores"]] <- settings[["numberChainRuns"]]
+  }
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
     output <- get_discrete_outputB(model, data, settings, FALSE, par)
@@ -28,9 +31,6 @@ ptmc_discrete_func <- function(model, data, settings, par = NULL) {
 }
 
 get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
-  nCores <- detectCores() - 1
-  cl <- makeCluster(nCores, outfile="")
-  registerDoParallel(cl)
 
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTdiscrete <- vector(mode = "list", length = settings[["numberChainRuns"]])
@@ -46,7 +46,7 @@ get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
       function(i) {
         run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
       },
-      mc.cores = nCores
+      mc.cores = settings[["numberCores"]]
     )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {

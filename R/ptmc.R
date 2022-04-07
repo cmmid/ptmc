@@ -18,6 +18,9 @@ NULL
 #'
 #' @export
 ptmc_func <- function(model, data_list, settings, par = NULL) {
+  if (is.null(settings[["numberCores"]])) {
+    settings[["numberCores"]] <- settings[["numberChainRuns"]]
+  }
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
     output <- get_outputB(model, data_list, settings, FALSE, par)
@@ -28,9 +31,6 @@ ptmc_func <- function(model, data_list, settings, par = NULL) {
 }
 
 get_outputB <- function(model, data_list, settings, update_ind, par) {
-  nCores <- detectCores() - 1
-  cl <- makeCluster(nCores)
-  registerDoParallel(cl)
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTlp <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTtemp <- vector(mode = "list", length = settings[["numberChainRuns"]])
@@ -44,7 +44,7 @@ get_outputB <- function(model, data_list, settings, update_ind, par) {
       function(i) {
         run_ptmc(model, data_list, settings, update_ind, par[[i]])
       },
-      mc.cores = nCores
+      mc.cores = settings[["numberCores"]]
     )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {
