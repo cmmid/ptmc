@@ -9,6 +9,8 @@
 #' @importFrom magrittr %>% %<>%
 NULL
 
+
+
 #' Create a model
 #'
 #' @param model The model to run ptmc.
@@ -18,9 +20,8 @@ NULL
 #'
 #' @export
 ptmc_discrete_func <- function(model, data, settings, par = NULL) {
-  if (is.null(settings[["numberCores"]])) {
-    settings[["numberCores"]] <- settings[["numberChainRuns"]]
-  }
+    settings <- check_settings_discete(settings)
+
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
     output <- get_discrete_outputB(model, data, settings, FALSE, par)
@@ -44,13 +45,13 @@ get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
   if (settings[["runParallel"]]) {
     out_raw <- mclapply(1:settings[["numberChainRuns"]], 
       function(i) {
-        run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
+        run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]], i)
       },
       mc.cores = settings[["numberCores"]]
     )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {
-      out_raw[[i]] <- run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]])
+      out_raw[[i]] <- run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]], i)
     }
   }
 
@@ -139,4 +140,95 @@ get_outputA <- function(model, settings, update_ind, par) {
     acc = outlaccv
   )
   output
+}
+
+check_settings_discete <- function(settings) {
+  if (is.null(settings[["numberChainRuns"]])) {
+    settings[["numberChainRuns"]] <- 4
+    cat("`numberChainRuns` not specified in settings. Default value 4. \n")
+  }
+
+  if (is.null(settings[["numberCores"]])) {
+    settings[["numberCores"]] <- settings[["numberChainRuns"]]
+    cat("`numberCores` not specified in settings. Default value equal to `numberChainRuns`. \n")
+  }
+
+  if (is.null(settings[["numberTempChains"]])) {
+    settings[["numberTempChains"]] <- 10
+    cat("`numberTempChains` not specified in settings. Default value 10. \n")
+  }  
+  if (is.null(settings[["iterations"]])) {
+    settings[["iterations"]] <- 20000
+    cat("`iterations` not specified in settings. Default value 20,000. \n")
+  }  
+  if (is.null(settings[["burninPosterior"]])) {
+    settings[["burninPosterior"]] <- 10000
+    cat("`numberChainRuns` not specified in settings. Default value 10,000. \n")
+  }  
+  if (is.null(settings[["thin"]])) {
+    settings[["thin"]] <- 100
+    cat("`thin` not specified in settings. Default value 100. \n")
+  }
+  if (is.null(settings[["consoleUpdates"]])) {
+    settings[["consoleUpdates"]] <- 100
+    cat("`consoleUpdates` not specified in settings. Default value 100. \n")
+  }
+  if (is.null(settings[["numberFittedPar"]])) {
+    stop("`numberFittedPar` not specified in settings. MUST be specified. \n")
+  }
+  if (is.null(settings[["onAdaptiveCov"]])) {
+        settings[["onAdaptiveCov"]] <- TRUE
+    cat("`onAdaptiveCov` not specified in settings. Default value TRUE. \n")
+  }
+  if (is.null(settings[["updatesAdaptiveCov"]])) {
+        settings[["updatesAdaptiveCov"]] <- 100
+    cat("`updatesAdaptiveCov` not specified in settings. Default value 100. \n")
+  }
+  if (is.null(settings[["burninAdaptiveCov"]])) {
+        settings[["burninAdaptiveCov"]] <- 2000
+    cat("`burninAdaptiveCov` not specified in settings. Default value 2000. \n")
+  }
+  if (is.null(settings[["onAdaptiveTemp"]])) {
+        settings[["onAdaptiveTemp"]] <- TRUE
+    cat("`onAdaptiveTemp` not specified in settings.  Default value TRUE. \n")
+  }
+  if (is.null(settings[["updatesAdaptiveTemp"]])) {
+        settings[["updatesAdaptiveTemp"]] <- 10
+    cat("`updatesAdaptiveTemp` not specified in settings.  Default value 10. \n")
+  }
+  if (is.null(settings[["onDebug"]])) {
+        settings[["onDebug"]] <- FALSE
+  }
+  if (is.null(settings[["lowerParBounds"]])) {
+    stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+  }
+  if (is.null(settings[["upperParBounds"]])) {
+    stop("`upperParBounds` not specified in settings. MUST be specified. \n")
+  }
+  if (is.null(settings[["covarInitVal"]])) {
+        settings[["covarInitVal"]] <- 1e-10
+    cat("`covarInitVal` not specified in settings.  Default value 1e-10. \n")
+  }
+  if (is.null(settings[["covarInitValAdapt"]])) {
+        settings[["covarInitValAdapt"]] <- 1e-10
+    cat("`covarInitValAdapt` not specified in settings.  Default value 1e-10. \n")
+  }
+  if (is.null(settings[["covarMaxVal"]])) {
+        settings[["covarMaxVal"]] <- 1
+    cat("`covarMaxVal` not specified in settings. Default value 1. \n")
+  }
+  if (is.null(settings[["runParallel"]])) {
+        settings[["runParallel"]] <- TRUE
+    cat("`runParallel` not specified in settings. Default value TRUE. \n")
+  }
+
+  if (is.null(settings[["lengthDiscreteVec"]])) {
+    stop("`lengthDiscreteVec` not specified in settings. MUST be specified. \n")
+  }
+  if (is.null(settings[["updateDiscreteFreq"]])) {
+        settings[["updateDiscreteFreq"]] <- 0
+    cat("`updateDiscreteFreq` not specified in settings. Default value 0. \n")
+  }
+
+  settings
 }

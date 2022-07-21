@@ -47,7 +47,7 @@ void init_evaluateLogLikelihood(RPTMC* model, Rcpp::Function evaluateLogLikeliho
 */
 
 // [[Rcpp::export]]
-List run_ptmc(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar)
+List run_ptmc(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar, int i)
 {
   ptmc::PTMC PTMC; MatrixXd output;
   ptmc::init_samplePriorDistributions(&PTMC, model["samplePriorDistributions"]);
@@ -57,7 +57,7 @@ List run_ptmc(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, boo
   if (update_ind) {
     PTMC.updateClass(settings, dataList, PTMCpar);
   } else {  
-    PTMC.initialiseClass(settings, dataList);
+    PTMC.initialiseClass(settings, dataList, i);
   }
 
   output = PTMC.runPTMCC();
@@ -123,7 +123,7 @@ void init_discreteSampling_discrete(ptmc_discrete::PTMC_D* model, Rcpp::Function
 }
 */
 // [[Rcpp::export]]
-List run_ptmc_discrete(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar)
+List run_ptmc_discrete(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar, int i)
 {
   ptmc_discrete::PTMC_D PTMC; List output_full;
   MatrixXd output;
@@ -137,7 +137,7 @@ List run_ptmc_discrete(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List sett
   if (update_ind) {
     PTMC.updateClass(settings, dataList, PTMCpar);
   } else {  
-    PTMC.initialiseClass(settings, dataList);
+    PTMC.initialiseClass(settings, dataList, i);
   }
 
   output_full = PTMC.runPTMCC();

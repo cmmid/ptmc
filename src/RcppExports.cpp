@@ -13,8 +13,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // run_ptmc
-List run_ptmc(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar);
-RcppExport SEXP _ptmc_run_ptmc(SEXP modelSEXP, SEXP dataListSEXP, SEXP settingsSEXP, SEXP update_indSEXP, SEXP PTMCparSEXP) {
+List run_ptmc(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar, int i);
+RcppExport SEXP _ptmc_run_ptmc(SEXP modelSEXP, SEXP dataListSEXP, SEXP settingsSEXP, SEXP update_indSEXP, SEXP PTMCparSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -23,13 +23,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::List >::type settings(settingsSEXP);
     Rcpp::traits::input_parameter< bool >::type update_ind(update_indSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type PTMCpar(PTMCparSEXP);
-    rcpp_result_gen = Rcpp::wrap(run_ptmc(model, dataList, settings, update_ind, PTMCpar));
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(run_ptmc(model, dataList, settings, update_ind, PTMCpar, i));
     return rcpp_result_gen;
 END_RCPP
 }
 // run_ptmc_discrete
-List run_ptmc_discrete(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar);
-RcppExport SEXP _ptmc_run_ptmc_discrete(SEXP modelSEXP, SEXP dataListSEXP, SEXP settingsSEXP, SEXP update_indSEXP, SEXP PTMCparSEXP) {
+List run_ptmc_discrete(Rcpp::List model, Rcpp::RObject dataList, Rcpp::List settings, bool update_ind, Rcpp::List PTMCpar, int i);
+RcppExport SEXP _ptmc_run_ptmc_discrete(SEXP modelSEXP, SEXP dataListSEXP, SEXP settingsSEXP, SEXP update_indSEXP, SEXP PTMCparSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -38,14 +39,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::List >::type settings(settingsSEXP);
     Rcpp::traits::input_parameter< bool >::type update_ind(update_indSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type PTMCpar(PTMCparSEXP);
-    rcpp_result_gen = Rcpp::wrap(run_ptmc_discrete(model, dataList, settings, update_ind, PTMCpar));
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(run_ptmc_discrete(model, dataList, settings, update_ind, PTMCpar, i));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_ptmc_run_ptmc", (DL_FUNC) &_ptmc_run_ptmc, 5},
-    {"_ptmc_run_ptmc_discrete", (DL_FUNC) &_ptmc_run_ptmc_discrete, 5},
+    {"_ptmc_run_ptmc", (DL_FUNC) &_ptmc_run_ptmc, 6},
+    {"_ptmc_run_ptmc_discrete", (DL_FUNC) &_ptmc_run_ptmc_discrete, 6},
     {NULL, NULL, 0}
 };
 

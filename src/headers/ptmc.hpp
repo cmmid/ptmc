@@ -43,7 +43,7 @@ namespace ptmc{
         VectorXd currentLogPosterior, proposalSample;
         VectorXd temperatureLadder, temperatureLadderParameterised;
         
-        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp;
+        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp, chainNumber;
         int numberTempChains, numberFittedPar, numTempChainsNonAdaptive;
         int workingChainNumber, workingIteration;
         bool onDebug, onAdaptiveCov, onAdaptiveTemp;
@@ -84,12 +84,13 @@ namespace ptmc{
             return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
         }
         
-        void initialiseClass(List settings, RObject dataList)
+        void initialiseClass(List settings, RObject dataList, int i)
         {
             this->dataList = dataList;
             this->numberTempChains = settings["numberTempChains"];
             this->numTempChainsNonAdaptive = this->numberTempChains / 2;
-
+            this->chainNumber <- i;
+            
             this->numberFittedPar = settings["numberFittedPar"];
             this->iterations = settings["iterations"];
             this->thin = settings["thin"];
@@ -515,7 +516,7 @@ namespace ptmc{
         {
             int i = this->workingIteration;
             if(i%this->consoleUpdates == 0) {
-                Rcpp::Rcout << "Running MCMC-PT iteration number: " << this->workingIteration << " of " <<  this->iterations << ". Current logpost: " << this->currentLogPosterior(0) << ". " << this->currentLogPosterior(1) << "           " << "\r";
+                Rcpp::Rcout << "Running MCMC-PT iteration number: " << this->workingIteration << " of " <<  this->iterations << ". Chain number " << this->chainNumber << ". Current logpost: " << this->currentLogPosterior(0) << ". " << this->currentLogPosterior(1) << "           " << "\r";
                 if (this->onDebug) {
                     Rcpp::Rcout << "\n Current values: " << this->currentSample.row(0) << std::endl;
                 }

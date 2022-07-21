@@ -52,7 +52,8 @@ namespace ptmc_discrete{
         VectorXi proposalDiscrete;
 
         VectorXd iPosterior;
-        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp, updateDiscreteFreq;
+        int iterations, posteriorSamplesLength, thin, burninPosterior, burninAdaptiveCov, consoleUpdates, updatesAdaptiveCov, updatesAdaptiveTemp, chainNumber;
+        double updateDiscreteFreq;
         int lengthDiscreteVec;
         int numberTempChains, numberFittedPar, numTempChainsNonAdaptive;
         int workingChainNumber, workingIteration;
@@ -63,7 +64,7 @@ namespace ptmc_discrete{
         VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
         VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
-        double proposedLogPosterior, alpha, covarMaxVal, covarInitVal;
+        double proposedLogPosterior, alpha, covarMaxVal, covarInitVal, covarInitValAdapt;
 
         std::function<VectorXd(RObject)> samplePriorDistributions;
         std::function<VectorXi(RObject)> initialiseDiscrete;
@@ -98,9 +99,10 @@ namespace ptmc_discrete{
             return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
         }
         
-        void initialiseClass(List settings, RObject dataList)
+        void initialiseClass(List settings, RObject dataList, int i)
         {
             this->dataList = dataList;
+            this->chainNumber = i;
             this->numberTempChains = settings["numberTempChains"];
             this->numTempChainsNonAdaptive = this->numberTempChains / 2;
 
@@ -121,6 +123,7 @@ namespace ptmc_discrete{
             this->upperParBounds = settings["upperParBounds"];
 
             this->covarInitVal = settings["covarInitVal"];
+            this->covarInitValAdapt = settings["covarInitValAdapt"];
             this->covarMaxVal = settings["covarMaxVal"];
 
             this->updateDiscreteFreq = settings["updateDiscreteFreq"];
@@ -165,7 +168,7 @@ namespace ptmc_discrete{
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
                 this->nonadaptiveCovarianceMat(parNum,parNum) = this->covarInitVal*(this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 for (int chainNum = 0; chainNum < this->numberTempChains; chainNum++){
-                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = this->covarInitValAdapt*(this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 }
             }
             
@@ -584,7 +587,7 @@ namespace ptmc_discrete{
         {
             int i = this->workingIteration;
             if(i%this->consoleUpdates == 0) {
-                Rcpp::Rcout << "Running MCMC-PT iteration number: " << this->workingIteration << " of " <<  this->iterations << ". Current logpost: " << this->currentLogPosterior(0) << ". " << this->currentLogPosterior(1) << "           " << "\r";
+                Rcpp::Rcout << "Running MCMC-PT iteration number: " << this->workingIteration << " of " <<  this->iterations << ". Chain number " << this->chainNumber << ". Current logpost: " << this->currentLogPosterior(0) << ". " << this->currentLogPosterior(1) << "           " << "\r";
                 if (this->onDebug) {
                     Rcpp::Rcout << "\n Current values: " << this->currentSample.row(0) << std::endl;
                 }
