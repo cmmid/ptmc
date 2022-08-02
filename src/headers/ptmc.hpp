@@ -53,16 +53,16 @@ namespace ptmc{
         VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
         VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
-        double proposedLogPosterior, alpha, initCovarVal;
+        double proposedLogPosterior, alpha, covarMaxVal, covarInitVal, covarInitValAdapt;
 
-        std::function<VectorXd()> samplePriorDistributions;
-        std::function<double(VectorXd)> evaluateLogPrior;
+        std::function<VectorXd(RObject)> samplePriorDistributions;
+        std::function<double(VectorXd, RObject)> evaluateLogPrior;
         std::function<double(VectorXd, MatrixXd, RObject)> evaluateLogLikelihood;
 
         double stepSizeRobbinsMonro;  
         double evalLogPosterior(const VectorXd& param, const MatrixXd& covariance, const RObject& dataList)
         {
-            double logPrior = this->evaluateLogPrior(param);
+            double logPrior = this->evaluateLogPrior(param, dataList);
             if (isinf(logPrior))
                 return log(0);
           
@@ -89,7 +89,7 @@ namespace ptmc{
             this->dataList = dataList;
             this->numberTempChains = settings["numberTempChains"];
             this->numTempChainsNonAdaptive = this->numberTempChains / 2;
-            this->chainNumber <- i;
+            this->chainNumber = i;
             
             this->numberFittedPar = settings["numberFittedPar"];
             this->iterations = settings["iterations"];
@@ -106,7 +106,9 @@ namespace ptmc{
             this->lowerParBounds = settings["lowerParBounds"];
             this->upperParBounds = settings["upperParBounds"];
 
-            this->initCovarVal = settings["initCovarVal"];
+            this->covarInitVal = settings["covarInitVal"];
+            this->covarInitValAdapt = settings["covarInitValAdapt"];
+            this->covarMaxVal = settings["covarMaxVal"];
 
             // Counters 
             this->counterFuncEval = VectorXd::Zero(this->numberTempChains);
@@ -139,9 +141,9 @@ namespace ptmc{
             MatrixXd initialCovarianceMatrix;
             
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
-                this->nonadaptiveCovarianceMat(parNum,parNum) = this->initCovarVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                this->nonadaptiveCovarianceMat(parNum,parNum) = this->covarInitVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 for (int chainNum = 0; chainNum < this->numberTempChains; chainNum++){
-                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = this->initCovarVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
+                    this->adaptiveCovarianceMat(chainNum*this->numberFittedPar+parNum,parNum) = this->covarInitValAdapt * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 }
             }
             
@@ -154,11 +156,11 @@ namespace ptmc{
                 if (chainNum > 0)
                     temperatureLadderParameterised[chainNum-1] = log(temperatureLadder[chainNum]-temperatureLadder[chainNum-1]);
                 
-                initialSample = this->samplePriorDistributions();
+                initialSample = this->samplePriorDistributions(this->dataList);
                 this->currentCovarianceMatrix = this->nonadaptiveScalar(chainNum)*this->nonadaptiveCovarianceMat;
                 initialLogLikelihood = this->evalLogPosterior(initialSample, this->currentCovarianceMatrix, this->dataList);
                 while(isinf(initialLogLikelihood) || isnan(initialLogLikelihood)){
-                    initialSample = this->samplePriorDistributions();
+                    initialSample = this->samplePriorDistributions(this->dataList);
                     initialLogLikelihood = this->evalLogPosterior(initialSample, this->currentCovarianceMatrix, this->dataList);
                 }
                 
@@ -433,12 +435,12 @@ namespace ptmc{
         
         void trimNonAdaptiveValues(double value)
         {
-            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->initCovarVal), 1e-15));
+            this->nonadaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value),  this->covarMaxVal), 1e-25));
         }
         
         void trimAdaptiveValues(double value)
         {
-            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->initCovarVal), 1e-15));
+            this->adaptiveScalar[this->workingChainNumber] = log(MAX(MIN(exp(value), this->covarMaxVal), 1e-25));
         }
 
 
@@ -525,9 +527,9 @@ namespace ptmc{
     };
 
     void init_samplePriorDistributions(ptmc::PTMC* model, Rcpp::Function samplePriorDistributions) {
-        auto func = [samplePriorDistributions]() {
+        auto func = [samplePriorDistributions](RObject dataList) {
             PutRNGstate();
-            auto rData = samplePriorDistributions();
+            auto rData = samplePriorDistributions(dataList);
             GetRNGstate();
             return Rcpp::as<VectorXd>(rData);
         };
@@ -535,9 +537,9 @@ namespace ptmc{
     }
 
     void init_evaluateLogPrior(ptmc::PTMC* model, Rcpp::Function evaluateLogPrior) {
-        auto func = [evaluateLogPrior](VectorXd params) {
+        auto func = [evaluateLogPrior](VectorXd params, RObject dataList) {
             PutRNGstate();
-            auto rData = evaluateLogPrior(params);
+            auto rData = evaluateLogPrior(params, dataList);
             GetRNGstate();
             return Rcpp::as<double>(rData);
         };

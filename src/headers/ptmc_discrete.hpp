@@ -368,7 +368,7 @@ namespace ptmc_discrete{
         void generateSampleFromNonAdaptiveProposalDist()
         {
             double s;
-            trimNonAdaptiveValues(this->nonadaptiveScalar[this->workingChainNumber]);
+          //  trimNonAdaptiveValues(this->nonadaptiveScalar[this->workingChainNumber]);
             s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;

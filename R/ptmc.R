@@ -17,14 +17,14 @@ NULL
 #' @return Returns a list with the fist element being the mcmc samples formatting for analysis and plottig with the CODA package. The second is the log posterior value at each time step.
 #'
 #' @export
-ptmc_func <- function(model, data_list, settings, par = NULL) {
+ptmc_func <- function(model, data, settings, par = NULL) {
   settings <- check_settings(settings)
 
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
-    output <- get_outputB(model, data_list, settings, FALSE, par)
+    output <- get_outputB(model, data, settings, FALSE, par)
   } else {
-    output <- get_outputB(model, data_list, settings, TRUE, par)
+    output <- get_outputB(model, data, settings, TRUE, par)
   }
   output
 }
