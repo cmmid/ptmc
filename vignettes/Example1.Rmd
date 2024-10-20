@@ -18,7 +18,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r setup}
 #devtools::install("..") #install if needed
 library(ptmc)
-library(tidyverse) 
+library(dplyr)
+library(tidyr) 
 library(coda)
 
 ```
@@ -183,6 +184,7 @@ post <- ptmc_func(model=model, data=data_t, settings=settings)
 `ptmc_func` returns a list of length two. The first entry is `post$mcmc` a mcmc or mcmc.list object (from the coda package). I can plot these and calculate convergence diagnostics using coda functions:
 
 ```{r plot outcomes}
+
 library(posterior)
 library(coda)
 library(bayesplot)
@@ -198,6 +200,9 @@ gelman.diag(post$mcmc)
 
 The second entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
 ```{r}
+
+library(ggplot2)
+
 # Plot of the logposterior for the three chains
 lpost_conv <- post$lpost %>% filter(sample_no>250)
 logpostplot <- ggplot(lpost_conv, aes(x = sample_no, y = lpost)) + 
@@ -209,10 +214,12 @@ logpostplot
 
 The third entry is `post$temp` and is long table dataframe of the adaptive temperature values. These values can be easily plotted using ggplot2:
 ```{r}
-# Plot of the logposterior for the three chains
-#temp_conv <- post$temp %>% filter(sample_no>5000)
+
+
 tempplot <- ggplot(post$temp, aes(x = sample_no, y = temperature)) + 
   geom_line(aes(color = chain_no), size = 0.2, alpha=0.8) +
   theme_minimal()
+
 tempplot
+
 ```
