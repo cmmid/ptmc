@@ -15,12 +15,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-```{r setup}
+```{r setup, message=FALSE, warning=FALSE, results='hide'}
 #devtools::install("..") #install if needed
 library(ptmc)
 library(dplyr)
 library(tidyr) 
 library(coda)
+
+
+# Using more than one core might fail on windows, 
+if (.Platform$OS.type == "windows") {
+  mc.cores <- 1
+} else {
+  mc.cores <- 2 # use as many as available, preferably 4.
+}
 
 ```
 
@@ -68,7 +76,7 @@ A function which calculates the log-prior for a set of parameter values
 * @return log-prior 
 
 
-```{r model definition}
+```{r model definition, message=FALSE, warning=FALSE, results='hide'}
 # model is a list of three functions and a vector string
 model <- list(
 
@@ -120,10 +128,12 @@ Data used in the log-likelihood function can be in any format.
 
 dataMos <- read.csv("RWM_mosquito.csv") 
 # restructure the data for the log-likelihood function
-data_t <-   list(
+data_t <- list(
   time = dataMos$time,
   y = dataMos$recaptured
 )
+
+data_t
 ```
 
 ### Settings
@@ -145,7 +155,7 @@ The settings for the parallel tempering algorithm are summarised here.
 * updatesAdaptiveTemp, frequency at which the adaptive temperature ladder is updated
 * Debug, run with debug output 
 
-```{r settings}
+```{r settings, message=FALSE, warning=FALSE, results='hide'}
 
 # settings used for the ptmc model 
 settings <-  list(
@@ -168,7 +178,7 @@ settings <-  list(
   covarInitValAdapt = 1e-4, # make very small if struggling to sample to beginning
   covarMaxVal = 1, # decrease if struggling to sample in the middle
   runParallel = TRUE,
-  numberCores = 2
+  numberCores = mc.cores
 )
 ```
 
@@ -183,7 +193,7 @@ post <- ptmc_func(model=model, data=data_t, settings=settings)
 ## Plot the data 
 `ptmc_func` returns a list of length two. The first entry is `post$mcmc` a mcmc or mcmc.list object (from the coda package). I can plot these and calculate convergence diagnostics using coda functions:
 
-```{r plot outcomes}
+```{r plot outcomes,  message=FALSE, results = 'hide'}
 
 library(posterior)
 library(coda)
@@ -214,7 +224,6 @@ logpostplot
 
 The third entry is `post$temp` and is long table dataframe of the adaptive temperature values. These values can be easily plotted using ggplot2:
 ```{r}
-
 
 tempplot <- ggplot(post$temp, aes(x = sample_no, y = temperature)) + 
   geom_line(aes(color = chain_no), size = 0.2, alpha=0.8) +
