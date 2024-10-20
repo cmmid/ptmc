@@ -26,10 +26,21 @@ public:
     
     Eigen::VectorXd mean;
     Eigen::MatrixXd sigma;
+    Eigen::MatrixXd L;
     
-    Mvn(const Eigen::VectorXd& mu, const Eigen::MatrixXd& s) :mean(mu), sigma(s) {
-        
+    Mvn() {
+
     };
+   // Mvn(const Eigen::VectorXd& mu, const Eigen::MatrixXd& s) :mean(mu), sigma(s) {
+   //     Eigen::LLT<Eigen::MatrixXd> cholSolver(sigma);
+   //     L = cholSolver.matrixL();
+   // };
+
+    void updateCholesky(const Eigen::VectorXd& mu, const Eigen::MatrixXd& sigma) {
+        mean = mu;
+        Eigen::LLT<Eigen::MatrixXd> cholSolver(sigma);
+        L = cholSolver.matrixL();
+    }
     
     Eigen::VectorXd sample(int nr_iterations)
     {
@@ -56,11 +67,31 @@ public:
         Eigen::MatrixXd eigenvectors = eigen_solver.eigenvectors().real();   // get Eigenvalues
         Eigen::MatrixXd eigenvalues = eigen_solver.eigenvalues().cwiseMax(0).cwiseSqrt().asDiagonal();  //find max then square root of eigen values x times vectors and take diganoal
         
-        
         // Find the transformation matrix
         Eigen::MatrixXd Q = eigenvectors * eigenvalues;
         
         return Q * x + mean;
+    }
+
+    Eigen::VectorXd sample_chol(int nr_iterations)
+    {
+        int n = mean.rows();
+        
+        // Generate x from the N(0, I) distribution
+        Eigen::VectorXd x(n);
+        
+        for (int i = 0; i < n; ++i) {
+            x(i) = static_cast<double>(rand()) / RAND_MAX;
+        }
+        x = (x * 2.0) - Eigen::VectorXd::Ones(n);
+        
+        
+        // Find the eigen vectors of the covariance matrix
+      //  Eigen::LLT<Eigen::MatrixXd> cholSolver(sigma);
+       //Eigen::MatrixXd L = cholSolver.matrixL();
+        
+        // Find the transformation matrix        
+        return this->L * x + this->mean;
     }
     
     void checkTrunc(Eigen::VectorXd sampleCheck, Eigen::VectorXd lowerBound, Eigen::VectorXd upperBound, bool& parOOS)
@@ -79,12 +110,12 @@ public:
         bool parOOS = FALSE;
         int j = 0;
         Eigen::VectorXd sampleCheck;
-        sampleCheck = sample(nr_iterations);
+        sampleCheck = sample_chol(nr_iterations);
         checkTrunc(sampleCheck, lowerBound, upperBound, parOOS);
         
         while (parOOS){
             j++;
-            sampleCheck = sample(nr_iterations);
+            sampleCheck = sample_chol(nr_iterations);
             if (onDebug) {
                 Rcpp::Rcout << sampleCheck << std::endl;
             }

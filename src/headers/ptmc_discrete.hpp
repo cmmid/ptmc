@@ -61,8 +61,8 @@ namespace ptmc_discrete{
         bool isSampleAccepted, isProposalAdaptive;
 
         RObject dataList;
-        VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
-        VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
+        VectorXi counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
+        VectorXi counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
         double proposedLogPosterior, alpha, covarMaxVal, covarInitVal, covarInitValAdapt;
 
@@ -71,6 +71,9 @@ namespace ptmc_discrete{
         std::function<double(VectorXd, VectorXi, RObject)> evaluateLogPrior;
         std::function<VectorXi(VectorXi, RObject)> discreteSampling;
         std::function<double(VectorXd, VectorXi, MatrixXd, RObject)> evaluateLogLikelihood;
+
+        Mvn Mvn_sampler;
+
 
         double stepSizeRobbinsMonro;
         double evalLogPosterior(const VectorXd& param, const VectorXi& discrete, const MatrixXd& covariance, const RObject& dataList)
@@ -128,13 +131,13 @@ namespace ptmc_discrete{
 
             this->updateDiscreteFreq = settings["updateDiscreteFreq"];
 
-            this->counterFuncEval = VectorXd::Zero(this->numberTempChains);
-            this->counterAccepted = VectorXd::Zero(this->numberTempChains);
-            this->counterPosterior = VectorXd::Zero(this->numberTempChains);
-            this->counterAdaptive = VectorXd::Zero(this->numberTempChains);
-            this->counterNonAdaptive = VectorXd::Zero(this->numberTempChains);
-            this->counterFuncEvalTemp = VectorXd::Zero(this->numberTempChains);
-            this->counterAcceptTemp = VectorXd::Zero(this->numberTempChains);
+            this->counterFuncEval = VectorXi::Zero(this->numberTempChains);
+            this->counterAccepted = VectorXi::Zero(this->numberTempChains);
+            this->counterPosterior = VectorXi::Zero(this->numberTempChains);
+            this->counterAdaptive = VectorXi::Zero(this->numberTempChains);
+            this->counterNonAdaptive = VectorXi::Zero(this->numberTempChains);
+            this->counterFuncEvalTemp = VectorXi::Zero(this->numberTempChains);
+            this->counterAcceptTemp = VectorXi::Zero(this->numberTempChains);
             
             this->iPosterior = VectorXd::Zero(this->numberTempChains);
 
@@ -353,7 +356,6 @@ namespace ptmc_discrete{
 
         void DiscreteProposalDist() {
             this->proposalDiscrete = this->discreteSampling(this->currentDiscrete.row(this->workingChainNumber), this->dataList);
-
         }
         
         void selectProposalDist(){
@@ -372,7 +374,7 @@ namespace ptmc_discrete{
             s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;
-            Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
+            Mvn_sampler.updateCholesky(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
             this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
             
             errorCheckVectorValid(this->proposalSample);
@@ -384,7 +386,7 @@ namespace ptmc_discrete{
             s = exp(this->adaptiveScalar[this->workingChainNumber]);
             this->counterAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = true;
             this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat.block(this->workingChainNumber*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
-            Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
+            Mvn_sampler.updateCholesky(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
             this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
             
             errorCheckVectorValid(this->proposalSample);

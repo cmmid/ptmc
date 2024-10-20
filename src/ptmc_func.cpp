@@ -1,12 +1,31 @@
+// Load all libraries and headers
+// Requires Rcpp, Eigen and boost
+#include <RcppCommon.h>
 #include <Rcpp.h>
 #include <RcppEigen.h>
+#include <Eigen/Core>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <boost/random.hpp>
+#include <boost/numeric/odeint.hpp>
+#include <boost/math/distributions.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <vector>
+#include <random>
+#include <math.h>
+#include <memory>
+#include <iostream>
 
 #include "./headers/mvn.hpp"
 #include "./headers/ptmc.hpp"
 #include "./headers/ptmc_discrete.hpp"
 
+// Define Rcpp dependicies and plugins
+// [[Rcpp::depends(BH)]]
 // [[Rcpp::depends(RcppEigen)]]
 // [[Rcpp::plugins("cpp14")]]
+
 
 ////////////////////////////////////////
 ////////////////////////////////////////

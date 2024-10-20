@@ -1,12 +1,15 @@
 Package: ptmc
-Type: Package
-Title: What the package does (short line)
-Version: 1.0
-Date: 2020-02-25
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
-Imports: Rcpp (>= 1.0.3), coda, tidyr, dplyr
-LinkingTo: Rcpp, RcppEigen
-RoxygenNote: 7.1.1
+Title: A general-purpose package to run parallel tempering mcmc with continuou discrete data
+Version: 0.1.0
+Authors@R: 
+    person("David", "Hodgson", , "david.hodgson@lshtm.ac.uk", role = c("aut", "cre"))
+Description: The `ptmc` package provides tools for fitting parallel tempering mcmc.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: Rcpp (>= 1.0.3), devtools, magrittr, tidyr, dplyr, brms, purrr, furrr, patchwork, here, ggplot2, doParallel, foreach, parallel, coda, data.table, lubridate, stringr, tidybayes, bayesplot, ggdist, boot, dtplyr, future, reshape2, posterior
+Suggests: knitr, rmarkdown
+LinkingTo: Rcpp, RcppEigen, BH
+SystemRequirements: C++14, g++ with flags: -Wno-unknown-pragmas -Wno-language-extension-token
+VignetteBuilder: knitr

@@ -16,6 +16,7 @@ NULL
 #' @param model The model to run ptmc.
 #' @param data Data used in the calibration process
 #' @param settings settings
+#' @param par parameters from previous run
 #' @return Returns a list with the fist element being the mcmc samples formatting for analysis and plottig with the CODA package. The second is the log posterior value at each time step.
 #'
 #' @export

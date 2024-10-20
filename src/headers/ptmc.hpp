@@ -50,14 +50,17 @@ namespace ptmc{
         bool isSampleAccepted, isProposalAdaptive;
 
         RObject dataList;
-        VectorXd counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
-        VectorXd counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
+        VectorXi counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
+        VectorXi counterNonAdaptive, counterFuncEvalTemp, counterAcceptTemp;
         
         double proposedLogPosterior, alpha, covarMaxVal, covarInitVal, covarInitValAdapt;
 
         std::function<VectorXd(RObject)> samplePriorDistributions;
         std::function<double(VectorXd, RObject)> evaluateLogPrior;
         std::function<double(VectorXd, MatrixXd, RObject)> evaluateLogLikelihood;
+
+        std::vector<Mvn> Mvn_sampler_nonAdapt;
+        std::vector<Mvn> Mvn_sampler_Adapt;
 
         double stepSizeRobbinsMonro;  
         double evalLogPosterior(const VectorXd& param, const MatrixXd& covariance, const RObject& dataList)
@@ -88,7 +91,7 @@ namespace ptmc{
         {
             this->dataList = dataList;
             this->numberTempChains = settings["numberTempChains"];
-            this->numTempChainsNonAdaptive = this->numberTempChains / 2;
+            this->numTempChainsNonAdaptive = this->numberTempChains * 0.75;
             this->chainNumber = i;
             
             this->numberFittedPar = settings["numberFittedPar"];
@@ -111,13 +114,13 @@ namespace ptmc{
             this->covarMaxVal = settings["covarMaxVal"];
 
             // Counters 
-            this->counterFuncEval = VectorXd::Zero(this->numberTempChains);
-            this->counterAccepted = VectorXd::Zero(this->numberTempChains);
-            this->counterPosterior = VectorXd::Zero(this->numberTempChains);
-            this->counterAdaptive = VectorXd::Zero(this->numberTempChains);
-            this->counterNonAdaptive = VectorXd::Zero(this->numberTempChains);
-            this->counterFuncEvalTemp = VectorXd::Zero(this->numberTempChains);
-            this->counterAcceptTemp = VectorXd::Zero(this->numberTempChains);
+            this->counterFuncEval = VectorXi::Zero(this->numberTempChains);
+            this->counterAccepted = VectorXi::Zero(this->numberTempChains);
+            this->counterPosterior = VectorXi::Zero(this->numberTempChains);
+            this->counterAdaptive = VectorXi::Zero(this->numberTempChains);
+            this->counterNonAdaptive = VectorXi::Zero(this->numberTempChains);
+            this->counterFuncEvalTemp = VectorXi::Zero(this->numberTempChains);
+            this->counterAcceptTemp = VectorXi::Zero(this->numberTempChains);
             
             this->posteriorSamplesLength = (this->iterations-this->burninPosterior)/(this->thin);
             this->posteriorOut = MatrixXd::Zero(this->posteriorSamplesLength, this->numberFittedPar + 3);
@@ -139,7 +142,8 @@ namespace ptmc{
             VectorXd initialSample;
             double initialLogLikelihood;
             MatrixXd initialCovarianceMatrix;
-            
+            MatrixXd adaptiveTempCovarianceMatrix;
+
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
                 this->nonadaptiveCovarianceMat(parNum,parNum) = this->covarInitVal * (this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 for (int chainNum = 0; chainNum < this->numberTempChains; chainNum++){
@@ -167,7 +171,13 @@ namespace ptmc{
                 this->currentSample.row(chainNum) = initialSample;
                 this->currentSampleMean.row(chainNum) = initialSample;
                 this->currentLogPosterior(chainNum) = initialLogLikelihood;
+                Mvn_sampler_Adapt.push_back(Mvn());
+                Mvn_sampler_Adapt[chainNum].updateCholesky(this->currentSample.row(chainNum).transpose(), this->currentCovarianceMatrix);
+                Mvn_sampler_nonAdapt.push_back(Mvn());
+                adaptiveTempCovarianceMatrix = this->adaptiveCovarianceMat.block(chainNum*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
+                Mvn_sampler_nonAdapt[chainNum].updateCholesky(this->currentSample.row(chainNum).transpose(), adaptiveTempCovarianceMatrix);
             }
+
             
             double alphaMVN = -sqrt(2)*ErfInv(0.234-1);
             this->stepSizeRobbinsMonro = (1.0-1.0/(double)this->numberFittedPar)*(pow(2*3.141, 0.5)*exp(alphaMVN*alphaMVN*0.5))/(2*alphaMVN) + 1.0/(this->numberFittedPar*0.234*(1-0.234));
@@ -178,7 +188,7 @@ namespace ptmc{
             this->dataList = dataList;
 
             this->numberTempChains = settings["numberTempChains"];
-            this->numTempChainsNonAdaptive = this->numberTempChains / 2;
+            this->numTempChainsNonAdaptive = this->numberTempChains;
 
             this->numberFittedPar = settings["numberFittedPar"];
             this->iterations = settings["iterations"];
@@ -308,25 +318,30 @@ namespace ptmc{
         
         void generateSampleFromNonAdaptiveProposalDist()
         {
+
             double s;
             s = exp(this->nonadaptiveScalar[this->workingChainNumber]);
             this->counterNonAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = false;
             this->currentCovarianceMatrix = s*this->nonadaptiveCovarianceMat;
-            Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
-            this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
-            
+            Mvn_sampler_nonAdapt[this->workingChainNumber].updateCholesky(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
+
+            this->proposalSample = Mvn_sampler_nonAdapt[this->workingChainNumber].sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
+
             errorCheckVectorValid(this->proposalSample);
         }
         
         void generateSampleFromAdaptiveProposalDist()
         {
-            double s;
-            s = exp(this->adaptiveScalar[this->workingChainNumber]);
-            this->counterAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = true;
-            this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat.block(this->workingChainNumber*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
-            Mvn Mvn_sampler(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
-            this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
-            
+            if ((this->workingIteration)%(this->updatesAdaptiveCov) == 0) {
+                double s;
+                s = exp(this->adaptiveScalar[this->workingChainNumber]);
+                this->counterAdaptive[this->workingChainNumber]++; this->isProposalAdaptive = true;
+
+                this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat.block(this->workingChainNumber*this->numberFittedPar, 0, this->numberFittedPar, this->numberFittedPar);
+                Mvn_sampler_Adapt[this->workingChainNumber].updateCholesky(this->currentSample.row(this->workingChainNumber).transpose(), this->currentCovarianceMatrix);
+            }
+            this->proposalSample = Mvn_sampler_Adapt[this->workingChainNumber].sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
+
             errorCheckVectorValid(this->proposalSample);
         }
         
@@ -369,7 +384,7 @@ namespace ptmc{
             int m = this->workingChainNumber;
             int P = this->numberFittedPar;
 
-            if (this->isProposalAdaptive){
+            if (this->isProposalAdaptive && ((this->workingIteration)%(this->updatesAdaptiveCov) == 0)){
                 this->adaptiveScalar[m] += this->stepSizeRobbinsMonro*pow(1+this->counterAdaptive[m],-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->adaptiveScalar[m]);
                 trimAdaptiveValues(this->adaptiveScalar[m]);
