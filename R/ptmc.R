@@ -19,7 +19,7 @@ NULL
 #'
 #' @export
 ptmc_func <- function(model, data, settings, par = NULL) {
-  settings <- check_settings(settings)
+  settings <- check_settings(settings, model)
 
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
@@ -134,7 +134,7 @@ get_outputA <- function(model, settings, update_ind, par) {
 }
 
 
-check_settings <- function(settings) {
+check_settings <- function(settings, model) {
 
   if (is.null(settings[["numberChainRuns"]])) {
     settings[["numberChainRuns"]] <- 4

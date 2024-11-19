@@ -1,0 +1,287 @@
+---
+title: "Negronis all round: simulation recovery of a discrete model 🍹"
+author: "David Hodgson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Negronis all round: simulation recovery of a discrete model 🍹}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+This vignette demonstrates how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. The weather per day is a latent variable ($W$) that can take one of three states:
+
+* Sunny ☀️, 
+* Cloudy ☁️, or 
+* Rainy 💧
+
+and each state has its own distribution of Negroni sales 🍹. We’ll show how to infer the weather state for each day based on observed Negroni sales using a probabilistic modeling framework.
+
+## 1. Relevant packages 
+
+```{r setup, message=FALSE, warning=FALSE, results='hide'}
+#devtools::install("..") #install if needed
+devtools::load_all()
+#library(ptmc)
+library(dplyr)
+library(tidyr) 
+library(coda)
+
+
+# Using more than one core might fail on windows, 
+if (.Platform$OS.type == "windows") {
+  mc.cores <- 1
+} else {
+  mc.cores <- 2 # use as many as available, preferably 4.
+}
+
+```
+
+## 2. Simulated data
+
+We simulate the dataset as follows:
+
+Each day of a month has an unobserved ("latent") weather state ($W_i '\in \{\🌧️, ☁️, ☀️ }$). We assume each weather is euqally likely to happen on each day. 
+For each weather conditions, we have a different distribution of Negroni sales each day $Y_i$ which we assume follows:
+
+* Sunny ☀️: $Y_i \sim \text{Poisson}(\lambda = 20)$
+* Cloudy ☁️: $Y_i \sim \text{Poisson}(\lambda = 10)$
+* Rainy 💧: $Y_i \sim \text{Poisson}(\lambda = 4)$
+
+
+```{r, fig.width=7, fig.height=5}
+
+set.seed(42)
+
+# Parameters
+n_days <- 30
+weather_states <- c("sunny", "cloudy", "rainy")
+lambda <- c(20, 10, 4)  # Poisson means for each weather state
+prior_probs <- c(0.33, 0.33, 0.33)  # Prior probabilities for each weather state
+
+# Generate latent weather states
+latent_weather <- sample(weather_states, size = n_days, replace = TRUE, prob = prior_probs)
+
+# Generate observed Negroni sales
+sales <- sapply(latent_weather, function(w) {
+  rpois(1, lambda[which(weather_states == w)])
+})
+
+# Combine into a data frame
+data <- data.frame(day = 1:n_days, sales = sales, weather = latent_weather)
+
+library(ggplot2)
+
+data %>% 
+  ggplot() + 
+    geom_col(aes(x = day, y = sales, fill = weather)) + 
+    scale_fill_manual(values = c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")) +
+    labs(x = "Day", y = "Negroni sales", fill = "Weather") + theme_bw()
+
+```
+
+
+## 3. Simulation recovery
+
+### 3.1 Description of the model 
+
+In our Bayesian model we assume that Observed Negroi Sales ($Y_i$) are Poisson distributed with a rate parameter $\lambda_w$ that depends on the latent weather state $W_i$.
+That is the likelihood $P(Y_i | W_i = w)$ is Poisson with rate $\lambda_w$ for each weather state $w$. 
+We assume the priors on the rate parameters $\lambda_w ~ \text{Unif}(0, 100)$.
+Finally, the prior distribution posterior distribution $P(W_i | Y_i)$ is given as the product of the likelihood and prior for each weather state $w$.
+
+
+### 3.2 Steps to Recover $W_i$: 
+
+To recover the latent weather states, we use a Bayesian model with the following components:
+1. **Define the Likelihood Function**: Implement the Poisson likelihood for $Y_i$ given $W_i = w$ for each weather state $w$. 
+2. **Calcualte the posterior probabilities**: Use the likelihood and prior to compute the posterior probabilities for each $W_i$ using Bayes' Rule.
+3. **Infer the model probable state per day**: Assign each day to the weather state w with the highest posterior probability. 
+4. **Repeat for all days**: Perform the above inference for all days in the dataset to recover the sequence of latent weather states.
+
+
+```{r model definition, message=FALSE, warning=FALSE, results='hide'}
+# model is a list of three functions and a vector string
+
+
+data_t <- list(
+  N = nrow(data),
+  y = data$sale
+)
+
+
+model <- list(
+
+  lowerParSupport_fitted = c(0, 0, 0),
+  upperParSupport_fitted = c(100, 100, 100),
+
+  namesOfParameters = c("w_r", "w_c", "w_s"),
+
+  discrete_length = 30,
+
+  samplePriorDistributions = function(datalist) {
+    runif(3, 0, 100)
+  },
+
+  evaluateLogPrior = function(params, discrete, datalist) {
+
+    lpr <- dunif( params, 0, 100, TRUE) %>% sum
+    if (!(params[1] < params[2] & params[2] < params[3])) {
+      lpr <- log(0)
+    }
+    lpr
+  },
+
+  initialiseDiscrete = function(datalist) { 
+      require(purrr)
+
+      N <- datalist$N
+
+      discrete <- sample(1:3, N, replace = TRUE)
+      discrete
+    },
+
+    discreteSampling = function(discrete, datalist) {
+
+        u <- runif(1)
+        N <- datalist$N
+        # resample
+        if (u < 0.33) {
+          j <- sample(1:N, 1)
+          discrete[j] <- sample(1:3, 1)
+          # swap
+        } else if(u < 0.66) {
+          j_idx <- sample(1:N, 2)
+          j_idx_1 <- discrete[j_idx[1]] 
+          discrete[j_idx[1]]  <- discrete[j_idx[2]] 
+          discrete[j_idx[2]] <- j_idx_1
+        } else {
+          # nothing happens!
+        }
+        return(discrete)
+    },
+
+
+  evaluateLogLikelihood = function(params, discrete, covariance, datalist) {
+    w_r <- params[1]
+    w_c <- params[2]
+    w_s <- params[3]
+
+    N <- datalist$N
+    ll <- 0;
+    for (i in 1:N) {
+      if (discrete[i] == 1) {
+         ll <- ll + dpois(datalist$y[i], w_r, log = TRUE)
+      } else if (discrete[i] == 2) {
+         ll <- ll + dpois(datalist$y[i], w_c, log = TRUE)
+      } else {
+         ll <- ll + dpois(datalist$y[i], w_s, log = TRUE)
+      }
+
+    }
+    ll
+  }
+)
+
+```
+
+
+### 3.3. Settings and run model 
+
+```{r settings, message=FALSE, warning=FALSE, results='hide', warning=FALSE, results='hide'}
+
+# settings used for the ptmc model 
+settings <-  list(
+  numberChainRuns = 4,
+  numberTempChains = 10,
+  iterations = 100000,
+  burninPosterior = 50000,
+  thin = 100
+)
+
+post <- ptmc_discrete_func(model=model, data=data_t, settings=settings)
+
+```
+
+## 4. Analyse the posterior distributions
+`ptmc_func` returns a list of length two. The first entry is `post$mcmc` a mcmc or mcmc.list object (from the coda package). I can plot these and calculate convergence diagnostics using coda functions:
+
+```{r plot outcomes,  message=FALSE, results = 'hide', fig.width=7, fig.height=5}
+
+library(posterior)
+library(coda)
+library(bayesplot)
+summary(post$mcmc)
+
+post$mcmc %>% mcmc_trace
+
+# Plot the Gelman-Rubin diagnostic for the parameters
+gelman.plot(post$mcmc)
+
+```
+
+The second entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
+```{r, fig.width=7, fig.height=5}
+
+library(ggplot2)
+
+
+# Plot of the logposterior for the three chains
+lpost_conv <- post$lpost %>% filter(sample_no>250)
+logpostplot <- ggplot(lpost_conv, aes(x = sample_no, y = lpost)) + 
+  geom_line(aes(color = chain_no), size = 0.2, alpha=0.8) +
+  theme_minimal()
+logpostplot
+
+```
+
+The third entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
+
+```{r, fig.width=7, fig.height=5} 
+
+library(purrr)
+df_discrete <- make_long_discrete(post$discrete)
+
+weather_key <- c("1" = "rainy", "2" = "cloudy", "3" = "sunny") 
+
+df_discrete_plt <- df_discrete %>% mutate(value = recode(value, !!!weather_key)) %>% 
+    mutate(idx = factor(idx, levels = 1:30)) 
+    
+ df_discrete_plt   %>%
+  ggplot() + 
+    geom_col(aes(x = idx, y = sample_no, fill = factor(value))) + 
+    scale_fill_manual(values = c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")) +
+    theme_minimal() + labs(x = "Sample number", y = "Weather state", fill = "Weather")
+
+```
+
+Find the maximum value and compare 
+
+```{r, fig.width=7, fig.height=5} 
+
+recode_emoji <- c("sunny" = "\U1F602", "cloudy" = "☁️", "rainy" = "🌧️")
+true_sim <- data.frame(
+    idx = 1:30,
+    true = latent_weather
+) %>% mutate(true = recode(true, !!!recode_emoji))
+
+
+df_discrete_plt %>% group_by(idx, value) %>% 
+    summarise(n = n()) %>% filter(n == max(n)) %>% 
+     ggplot() + 
+    geom_col(aes(x = idx, y = n, fill = factor(value))) + 
+    geom_text(data = true_sim, aes(x = idx, y = -100, label = true), family = "Apple Color Emoji") +
+    scale_fill_manual(values = c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")) +
+    theme_minimal() + labs(x = "Sample number", y = "Weather state", fill = "Weather")
+
+```
+## 5. Conclusion
+
+In this vignette, we have shown how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. We have demonstrated how to infer the weather state for each day based on observed Negroni sales using a probabilistic modeling framework.

@@ -21,18 +21,18 @@ NULL
 #'
 #' @export
 ptmc_discrete_func <- function(model, data, settings, par = NULL) {
-    settings <- check_settings_discete(settings)
+    settings <- check_settings_discete(settings, model)
 
   if (length(par) == 0) {
     par <- rep(list(list(type = "None")), settings[["numberChainRuns"]])
-    output <- get_discrete_outputB(model, data, settings, FALSE, par)
+    output <- get_discrete_output(model, data, settings, FALSE, par)
   } else {
-    output <- get_discrete_outputB(model, data, settings, TRUE, par)
+    output <- get_discrete_output(model, data, settings, TRUE, par)
   }
   output
 }
 
-get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
+get_discrete_output <- function(model, data_list, settings, update_ind, par) {
 
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
   outPTdiscrete <- vector(mode = "list", length = settings[["numberChainRuns"]])
@@ -48,7 +48,7 @@ get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
       function(i) {
         run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]], i)
       },
-      mc.cores = settings[["numberCores"]]
+      mc.cores = settings[["numberChainRuns"]]
     )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {
@@ -100,50 +100,7 @@ get_discrete_outputB <- function(model, data_list, settings, update_ind, par) {
   output
 }
 
-get_outputA <- function(model, settings, update_ind, par) {
-  outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
-  outPTlp <- vector(mode = "list", length = settings[["numberChainRuns"]])
-  outPTtemp <- vector(mode = "list", length = settings[["numberChainRuns"]])
-  outPTacc <- vector(mode = "list", length = settings[["numberChainRuns"]])
-
-  for (i in 1:settings[["numberChainRuns"]]) {
-    out_raw <- run_ptmc(model, settings, update_ind, par[[i]])
-    out_post <- out_raw[, 1:settings$numberFittedPar]
-    if (settings$numberFittedPar > 1){
-        colnames(out_post) <- model[["namesOfParameters"]]
-    }
-    outPTpost[[i]] <- mcmc(out_post)
-    
-    outPTlp[[i]] <- out_raw[, settings$numberFittedPar + 1]
-    outPTtemp[[i]] <- out_raw[, settings$numberFittedPar + 2]
-    outPTacc[[i]] <- out_raw[, settings$numberFittedPar + 3]
-  }
-
-  outlpv <- data.frame(matrix(unlist(outPTlp), nrow=length(outPTlp[[1]])))
-  colnames(outlpv) <- c(1:settings[["numberChainRuns"]])
-  outlpv <- outlpv %>% gather(colnames(outlpv), key="chain_no",value="lpost")
-  outlpv$sample_no <-rep(1:length(outPTlp[[1]]), settings[["numberChainRuns"]])
-
-  outltempv <- data.frame(matrix(unlist(outPTtemp), nrow=length(outPTtemp[[1]])))
-  colnames(outltempv) <- c(1:settings[["numberChainRuns"]])
-  outltempv <- outltempv %>% gather(colnames(outltempv), key="chain_no", value="temperature")
-  outltempv$sample_no <- rep(1:length(outPTtemp[[1]]), settings[["numberChainRuns"]])
-  
-  outlaccv <- data.frame(matrix(unlist(outPTacc), nrow=length(outPTacc[[1]])))
-  colnames(outlaccv) <- c(1:settings[["numberChainRuns"]])
-  outlaccv <- outlaccv %>% gather(colnames(outlaccv), key="chain_no", value="acceptance rate")
-  outlaccv$sample_no <- rep(1:length(outPTacc[[1]]), settings[["numberChainRuns"]])
-
-  output <- list(
-    mcmc = as.mcmc.list(outPTpost),
-    lpost = outlpv,
-    temp = outltempv,
-    acc = outlaccv
-  )
-  output
-}
-
-check_settings_discete <- function(settings) {
+check_settings_discete <- function(settings, model) {
   if (is.null(settings[["numberChainRuns"]])) {
     settings[["numberChainRuns"]] <- 4
     cat("`numberChainRuns` not specified in settings. Default value 4. \n")
@@ -175,7 +132,11 @@ check_settings_discete <- function(settings) {
     cat("`consoleUpdates` not specified in settings. Default value 100. \n")
   }
   if (is.null(settings[["numberFittedPar"]])) {
-    stop("`numberFittedPar` not specified in settings. MUST be specified. \n")
+    if (is.null(model$namesOfParameters)) {
+      stop("`numberFittedPar` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["numberFittedPar"]] <- length(model$namesOfParameters)
+    cat("`numberFittedPar` not specified in settings. Default value equal to the number of parameters in the model ", length(model$namesOfParameters), ". \n")
   }
   if (is.null(settings[["onAdaptiveCov"]])) {
         settings[["onAdaptiveCov"]] <- TRUE
@@ -201,10 +162,18 @@ check_settings_discete <- function(settings) {
         settings[["onDebug"]] <- FALSE
   }
   if (is.null(settings[["lowerParBounds"]])) {
-    stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+    if (is.null(model$lowerParSupport_fitted)) {
+      stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["lowerParBounds"]] <- model$lowerParSupport_fitted
+    cat("`lowerParBounds` not specified in settings. Defaults to lowerParSupport_fitted. \n")
   }
   if (is.null(settings[["upperParBounds"]])) {
-    stop("`upperParBounds` not specified in settings. MUST be specified. \n")
+    if (is.null(model$lowerParSupport_fitted)) {
+      stop("`upperParBounds` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["upperParBounds"]] <- model$upperParSupport_fitted
+    cat("`upperParBounds` not specified in settings. Defaults to upperParSupport_fitted \n")
   }
   if (is.null(settings[["covarInitVal"]])) {
         settings[["covarInitVal"]] <- 1e-10
@@ -219,12 +188,17 @@ check_settings_discete <- function(settings) {
     cat("`covarMaxVal` not specified in settings. Default value 1. \n")
   }
   if (is.null(settings[["runParallel"]])) {
-        settings[["runParallel"]] <- TRUE
+
+    settings[["runParallel"]] <- TRUE 
     cat("`runParallel` not specified in settings. Default value TRUE. \n")
   }
 
   if (is.null(settings[["lengthDiscreteVec"]])) {
-    stop("`lengthDiscreteVec` not specified in settings. MUST be specified. \n")
+    if (is.null(model$discrete_length)) {
+      stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["lengthDiscreteVec"]] <- model$discrete_length
+    cat("`lengthDiscreteVec` not specified in settings. Defaults to ", model$discrete_length, ". \n")
   }
   if (is.null(settings[["updateDiscreteFreq"]])) {
         settings[["updateDiscreteFreq"]] <- 0
