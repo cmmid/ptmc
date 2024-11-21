@@ -456,7 +456,7 @@ that match exactly.</p>
 <span><span class="co"># SMC calculation</span></span>
 <span><span class="va">smc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">true_vec</span> <span class="op">==</span> <span class="va">model_est_vec</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">true_vec</span><span class="op">)</span></span>
 <span><span class="va">smc</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.8</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.8333333</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="distance-metrics">5.2. Distance Metrics<a class="anchor" aria-label="anchor" href="#distance-metrics"></a>
@@ -470,7 +470,7 @@ elements.</li>
 <code class="sourceCode R"><span><span class="co"># Hamming distance</span></span>
 <span><span class="va">hamming_distance</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">true_vec</span> <span class="op">!=</span> <span class="va">model_est_vec</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">true_vec</span><span class="op">)</span></span>
 <span><span class="va">hamming_distance</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.2</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.1666667</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
