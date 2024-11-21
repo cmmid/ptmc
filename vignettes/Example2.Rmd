@@ -241,7 +241,7 @@ Select the run time, chains, number of cores, burnin and thinning for the model.
 # Settings used for the ptmc model 
 settings <-  list(
   numberChainRuns = 2,
-  numberCores = 2,
+  numberCores = mc.cores,
   numberTempChains = 10,
   iterations = 100000,
   burninPosterior = 50000,
