@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 This vignette demonstrates how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. The weather per day is a latent variable ($W$) that can take one of three states:
 
 * Sunny ☀️, 
-* Cloudy ☁️, or 
+* Cloudy ☁️
 * Rainy 💧
 
 and each state has its own distribution of Negroni sales 🍹. We’ll show how to infer the weather state for each day based on observed Negroni sales using a probabilistic modeling framework.
@@ -27,7 +27,7 @@ and each state has its own distribution of Negroni sales 🍹. We’ll show how 
 ## 1. Relevant packages 
 
 ```{r setup, message=FALSE, warning=FALSE, results='hide'}
-#devtools::install("..") #install if needed
+
 devtools::load_all()
 #library(ptmc)
 library(dplyr)
@@ -48,13 +48,14 @@ if (.Platform$OS.type == "windows") {
 
 We simulate the dataset as follows:
 
-Each day of a month has an unobserved ("latent") weather state ($W_i '\in \{\🌧️, ☁️, ☀️ }$). We assume each weather is euqally likely to happen on each day. 
-For each weather conditions, we have a different distribution of Negroni sales each day $Y_i$ which we assume follows:
+Each day of a month has an unobserved ("latent") weather state ($W_i \in ${\🌧️, ☁️, ☀️ }). We assume each weather is equally likely to happen on each day. 
+For each weather condition, we have a different distribution of Negroni sales each day $Y_i$ which we assume follows:
 
 * Sunny ☀️: $Y_i \sim \text{Poisson}(\lambda = 20)$
 * Cloudy ☁️: $Y_i \sim \text{Poisson}(\lambda = 10)$
 * Rainy 💧: $Y_i \sim \text{Poisson}(\lambda = 4)$
 
+Based on this,let's simulate some data:
 
 ```{r, fig.width=7, fig.height=5}
 
@@ -79,6 +80,7 @@ data <- data.frame(day = 1:n_days, sales = sales, weather = latent_weather)
 
 library(ggplot2)
 
+# plot!
 data %>% 
   ggplot() + 
     geom_col(aes(x = day, y = sales, fill = weather)) + 
@@ -101,10 +103,15 @@ Finally, the prior distribution posterior distribution $P(W_i | Y_i)$ is given a
 ### 3.2 Steps to Recover $W_i$: 
 
 To recover the latent weather states, we use a Bayesian model with the following components:
+
 1. **Define the Likelihood Function**: Implement the Poisson likelihood for $Y_i$ given $W_i = w$ for each weather state $w$. 
-2. **Calcualte the posterior probabilities**: Use the likelihood and prior to compute the posterior probabilities for each $W_i$ using Bayes' Rule.
+   
+2. **Calculate the posterior probabilities**: Use the likelihood and prior to compute the posterior probabilities for each $W_i$ using Bayes' Rule.
+   
 3. **Infer the model probable state per day**: Assign each day to the weather state w with the highest posterior probability. 
+   
 4. **Repeat for all days**: Perform the above inference for all days in the dataset to recover the sequence of latent weather states.
+   
 
 
 ```{r model definition, message=FALSE, warning=FALSE, results='hide'}
@@ -116,10 +123,7 @@ data_t <- list(
   y = data$sale
 )
 
-# 1. Parameter Bounds (lowerParSupport_fitted and upperParSupport_fitted)
-# These define the lower and upper bounds for the three model parameters: w_r, w_c, and w_s.
-# w_r, w_c, and w_s are restricted to lie between 0 and 100.
-# This ensures that the values for each parameter remain within a reasonable range during model fitting or sampling.
+# Add all of these entries into a model list
 
 model <- list(
 
@@ -230,11 +234,13 @@ model <- list(
 
 ### 3.3. Settings and run model 
 
+Select the run time, chains, number of cores, burnin and thinning for the model.
+
 ```{r settings, message=FALSE, warning=FALSE, results='hide', warning=FALSE, results='hide'}
 
-# settings used for the ptmc model 
+# Settings used for the ptmc model 
 settings <-  list(
-  numberChainRuns = 4,
+  numberChainRuns = 2,
   numberCores = 2,
   numberTempChains = 10,
   iterations = 100000,
@@ -247,9 +253,19 @@ post <- ptmc_discrete_func(model=model, data=data_t, settings=settings)
 ```
 
 ## 4. Analyse the posterior distributions
-`ptmc_func` returns a list of length two. The first entry is `post$mcmc` a mcmc or mcmc.list object (from the coda package). I can plot these and calculate convergence diagnostics using coda functions:
+`ptmc_discrete_func` returns a list of with entries:
 
-```{r plot outcomes,  message=FALSE, results = 'hide', fig.width=7, fig.height=5}
+* \code{mcmc}: An MCMC object with posterior samples of the model parameters.
+* \code{discrete}: A list of discrete states generated during the simulation for each chain.
+* \code{lpost}: A data frame of log-posterior values, with columns representing different chains and rows representing samples.
+* \code{temp}: A data frame of temperatures for each chain at each sample.
+* \code{acc}: A data frame of acceptance rates for each chain at each sample.
+* \code{outPTpar}: A list containing the parameter values for each chain.
+
+
+. The first entry is `post$mcmc` a mcmc or mcmc.list object (from the `coda` package). You can plot these and calculate convergence diagnostics using coda functions:
+
+```{r plot outcomes mcmc,  message=FALSE, results = 'hide', fig.width=7, fig.height=5}
 
 library(posterior)
 library(coda)
@@ -263,8 +279,9 @@ gelman.plot(post$mcmc)
 
 ```
 
-The second entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
-```{r,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+The next entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
+
+```{r plot outcomes lpost,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
 
 library(ggplot2)
 
@@ -278,9 +295,9 @@ logpostplot
 
 ```
 
-The third entry is `post$lpost` and is long table dataframe of the log-posterior values. These values can be easily plotted using ggplot2:
+The next entry is `post$discrete` and is a list of matrices describing the discrete states for each chain. These can be easily plotted using ggplot2 also:
 
-```{r,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5} 
+```{r plot outcomes discrete,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5} 
 
 library(purrr)
 df_discrete <- make_long_discrete(post$discrete)
@@ -298,27 +315,71 @@ df_discrete_plt <- df_discrete %>% mutate(value = recode(value, !!!weather_key))
 
 ```
 
-Find the maximum value and compare 
+Let's find the most probable weather state for each day based on the posterior samples and compare it to the true weather state (box color below 0.0)
 
-```{r,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5} 
+```{r plot outcomes compare,  message=FALSE, warning=FALSE, fig.width=7, fig.height=5} 
 
 recode_emoji <- c("sunny" = "\U1F602", "cloudy" = "☁️", "rainy" = "🌧️")
+recode_emoji_color <- c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")
+
 true_sim <- data.frame(
     idx = 1:30,
     true = latent_weather
-) %>% mutate(true = recode(true, !!!recode_emoji))
+) %>% mutate(color = recode(true, !!!recode_emoji_color)) %>%
+  mutate(true_emoji = recode(true, !!!recode_emoji)) 
 
 
-df_discrete_plt %>% group_by(idx, value) %>% 
-    summarise(n = n()) %>% filter(n == max(n)) %>% 
-     ggplot() + 
-    geom_col(aes(x = idx, y = n, fill = factor(value))) + 
-    geom_text(data = true_sim, aes(x = idx, y = -100, label = true), family = "Apple Color Emoji") +
-    scale_fill_manual(values = c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")) +
-    theme_minimal() + labs(x = "Sample number", y = "Weather state", fill = "Weather")
+S <- df_discrete_plt$sample_no %>% unique %>% length
+
+df_discrete_plt_mode <- df_discrete_plt %>% group_by(idx, value) %>% 
+    summarise(n = n() / S) %>% filter(n == max(n)) 
+df_discrete_plt_mode %>%
+    ggplot() + 
+      geom_col(aes(x = idx, y = n, fill = factor(value))) + 
+      geom_rect(data = true_sim, aes(xmin = idx - 0.3, xmax = idx + 0.3, ymin = -0.3, ymax = -0.1, fill = true)) +
+      scale_fill_manual(values = c("sunny" = "#f6cb2e", "cloudy" = "gray30", "rainy" = "#1eaefe")) +
+      theme_minimal() + labs(x = "Sample number", y = "Weather state", fill = "Weather")
+
 
 ```
 
-## 5. Conclusion
+## 5. simulation recovery metrics
 
-In this vignette, we have shown how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. A silly example, but more to come!!
+Here are a few easy distance metrics to compare the true and recovered weather states. 
+
+### 5.1. Simple Matching Coefficient (SMC)
+The SMC calculates the proportion otrue_sim
+f elements in the vectors that match exactly.
+
+```{r metrics A,  message='FALSE'}
+
+recode_number <- c("sunny" = "3", "cloudy" = "2", "rainy" = "1")
+
+
+true_vec <- true_sim %>% mutate(true_num = recode(true, !!!recode_number)) %>% pull(true_num)
+model_est_vec <- df_discrete_plt_mode %>% mutate(value_num = recode(value, !!!recode_number)) %>% pull(value_num)
+
+
+# SMC calculation
+smc <- sum(true_vec == model_est_vec) / length(true_vec)
+smc
+
+```
+
+
+### 5.2. Distance Metrics
+Use Hamming, Euclidean, and Manhattan distances.
+
+(a) Hamming Distance
+Hamming distance is the proportion of mismatched elements.
+
+```{r metrics B}
+# Hamming distance
+hamming_distance <- sum(true_vec != model_est_vec) / length(true_vec)
+hamming_distance
+```
+
+
+## 6. Conclusion
+
+In this vignette, we have shown how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. A silly example, but an easy one to understand. More complex examples to come!

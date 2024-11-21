@@ -31,16 +31,6 @@
 #'   - \code{acc}: A data frame of acceptance rates for each chain at each sample.
 #'   - \code{outPTpar}: A list containing the parameter values for each chain.
 #'
-#' @examples
-#' # Example usage of ptmc_discrete_func function
-#' settings <- list(
-#'   numberChainRuns = 4,
-#'   runParallel = TRUE
-#' )
-#' model <- list(namesOfParameters = c("param1", "param2"))
-#' data <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
-#' result <- ptmc_discrete_func(model, data, settings)
-#'
 #' @importFrom dplyr gather
 #' @importFrom coda mcmc
 #' @importFrom parallel mclapply
@@ -92,23 +82,10 @@ ptmc_discrete_func <- function(model, data, settings, par = NULL) {
 #'   \item{acc}{A data frame of acceptance rates for each chain at each sample.}
 #'   \item{outPTpar}{A list containing the parameter values for each chain.}
 #'
-#' @examples
-#' # Example usage of get_discrete_output function
-#' settings <- list(
-#'   numberChainRuns = 4,
-#'   runParallel = TRUE,
-#'   numberFittedPar = 2
-#' )
-#' model <- list(namesOfParameters = c("param1", "param2"))
-#' data_list <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
-#' par <- list(list(param1 = 0.1, param2 = 0.2), list(param1 = 0.3, param2 = 0.4), 
-#'             list(param1 = 0.5, param2 = 0.6), list(param1 = 0.7, param2 = 0.8))
-#' update_ind <- 1
-#' result <- get_discrete_output(model, data_list, settings, update_ind, par)
-#'
 #' @importFrom dplyr gather
 #' @importFrom coda mcmc
 #' @importFrom parallel mclapply
+#' @export
 get_discrete_output <- function(model, data_list, settings, update_ind, par) {
 
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
@@ -125,7 +102,7 @@ get_discrete_output <- function(model, data_list, settings, update_ind, par) {
       function(i) {
         run_ptmc_discrete(model, data_list, settings, update_ind, par[[i]], i)
       },
-      mc.cores = settings[["numberChainRuns"]]
+      mc.cores = settings[["numberCores"]]
     )
   } else {
     for (i in 1:settings[["numberChainRuns"]]) {

@@ -1,10 +1,10 @@
 ---
-title: "Example 1: Simple"
+title: "Continuous only model"
 author: "David Hodgson"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Example 1: Simple}
+  %\VignetteIndexEntry{Continuous only mode}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

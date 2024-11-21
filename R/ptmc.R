@@ -28,16 +28,6 @@
 #'   - Acceptance rates for each chain
 #'   - Parameter values for each chain
 #'
-#' @examples
-#' # Example usage of ptmc_func function
-#' model <- list(namesOfParameters = c("param1", "param2"))
-#' data <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
-#' settings <- list(
-#'   numberChainRuns = 4,
-#'   iterations = 10000
-#' )
-#' result <- ptmc_func(model, data, settings)
-#'
 #' @importFrom coda mcmc
 #' @importFrom parallel mclapply
 #' @importFrom dplyr gather
@@ -93,19 +83,6 @@ ptmc_func <- function(model, data, settings, par = NULL) {
 #' This function is designed to handle both parallel and sequential execution of PTMC chains. If `runParallel` is `TRUE`,
 #' the chains are executed in parallel using the `mclapply` function. Otherwise, the chains are executed sequentially 
 #' in a loop. The output is processed and reshaped into appropriate data frames for easy analysis.
-#'
-#' @examples
-#' # Example usage of get_output function
-#' model <- list(namesOfParameters = c("param1", "param2"))
-#' data_list <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
-#' settings <- list(
-#'   numberChainRuns = 4,
-#'   runParallel = TRUE,
-#'   numberFittedPar = 2,
-#'   numberCores = 4
-#' )
-#' par <- list(list(type = "None"), list(type = "None"), list(type = "None"), list(type = "None"))
-#' output <- get_output(model, data_list, settings, update_ind = FALSE, par = par)
 #'
 #' @importFrom coda mcmc
 #' @importFrom parallel mclapply
@@ -200,6 +177,9 @@ get_output <- function(model, data_list, settings, update_ind, par) {
 #'   - `covarInitValAdapt`: The initial covariance value for adaptive updates (default: 1e-10).
 #'   - `covarMaxVal`: The maximum covariance value (default: 1).
 #'   - `runParallel`: A logical flag indicating whether to run the simulation in parallel (default: TRUE).
+#' @param model A list representing the model used in the PTMC simulation. The function checks if specific model-related
+#'              attributes are available to fill in missing settings (e.g., `lowerParSupport_fitted`, `upperParSupport_fitted`, 
+#'              and `discrete_length`).
 #'
 #' @return The updated `settings` list, with all required settings specified and missing settings filled with default values.
 #'
@@ -281,10 +261,18 @@ check_settings <- function(settings, model) {
         settings[["onDebug"]] <- FALSE
   }
   if (is.null(settings[["lowerParBounds"]])) {
-    stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+    if (is.null(model$lowerParSupport_fitted)) {
+      stop("`lowerParBounds` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["lowerParBounds"]] <- model$lowerParSupport_fitted
+    cat("`lowerParBounds` not specified in settings. Defaults to lowerParSupport_fitted. \n")
   }
   if (is.null(settings[["upperParBounds"]])) {
-    stop("`upperParBounds` not specified in settings. MUST be specified. \n")
+    if (is.null(model$lowerParSupport_fitted)) {
+      stop("`upperParBounds` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["upperParBounds"]] <- model$upperParSupport_fitted
+    cat("`upperParBounds` not specified in settings. Defaults to upperParSupport_fitted \n")
   }
   if (is.null(settings[["covarInitVal"]])) {
         settings[["covarInitVal"]] <- 1e-10

@@ -2,22 +2,44 @@
 % Please edit documentation in R/ptmc_discrete.R
 \name{ptmc_discrete_func}
 \alias{ptmc_discrete_func}
-\title{Create a model}
+\title{Parallel Tempering Monte Carlo for Discrete Model}
 \usage{
 ptmc_discrete_func(model, data, settings, par = NULL)
 }
 \arguments{
-\item{model}{The model to run ptmc.}
+\item{model}{A list representing the model, which contains necessary information for running the
+PTMC. This could include the model structure, parameter names, and other model-specific
+settings.}
 
-\item{data}{Data used in the calibration process}
+\item{data}{A list containing the data required for running the model. This might include observed
+data, priors, or any other inputs that the model requires to perform the simulation.}
 
-\item{settings}{settings}
+\item{settings}{A list of settings for the PTMC simulation. The list must include the following:
+\itemize{
+\item \code{numberChainRuns}: The number of chains to run in parallel.
+\item Other settings relevant for running the PTMC simulation, which will be validated using the
+\code{check_settings_discete} function.
+}}
 
-\item{par}{parameters from previous run}
+\item{par}{(Optional) A list of parameters for the chains. If provided, each element should correspond
+to the parameters for one chain. If not provided (or empty), default parameters will be used.}
 }
 \value{
-Returns a list with the fist element being the mcmc samples formatting for analysis and plottig with the CODA package. The second is the log posterior value at each time step.
+A list containing the results of the PTMC simulation. The structure of the returned list will
+depend on the result of the \code{get_discrete_output} function, which includes:
+\itemize{
+\item \code{mcmc}: An MCMC object with posterior samples of the model parameters.
+\item \code{discrete}: A list of discrete states generated during the simulation for each chain.
+\item \code{lpost}: A data frame of log-posterior values, with columns representing different chains
+and rows representing samples.
+\item \code{temp}: A data frame of temperatures for each chain at each sample.
+\item \code{acc}: A data frame of acceptance rates for each chain at each sample.
+\item \code{outPTpar}: A list containing the parameter values for each chain.
+}
 }
 \description{
-Create a model
+This function runs the Parallel Tempering Monte Carlo (PTMC) simulation for a discrete model. It
+checks and validates the settings, and if the parameter list is empty, it initializes the parameters
+with default values. The function then calls the \code{get_discrete_output} function to perform the actual
+simulation and return the results.
 }
