@@ -50,7 +50,10 @@
   </a>
   <ul class="dropdown-menu" role="menu">
 <li>
-      <a href="articles/Example1.html">Example 1: Simple</a>
+      <a href="articles/Example1.html">Continuous only model</a>
+    </li>
+    <li>
+      <a href="articles/Example2.html">Negronis all round: simulation recovery of a discrete model 🍹</a>
     </li>
   </ul>
 </li>
@@ -67,14 +70,34 @@
 
       </header><div class="row">
   <div class="contents col-md-9">
-<div class="section level1">
-<div class="page-header"><h1 id="ptmc-r-package">
-<code>ptmc</code> R Package<a class="anchor" aria-label="anchor" href="#ptmc-r-package"></a>
-</h1></div>
+
 <div class="section level2">
 <h2 id="parallel-tempering-markov-chain-monte-carlo">Parallel Tempering Markov Chain Monte Carlo<a class="anchor" aria-label="anchor" href="#parallel-tempering-markov-chain-monte-carlo"></a>
 </h2>
-<p>This repository contains an R Package which takes an arbitrary likelihood and prior function for a set of fitted parameters and samples posterior values via a Metropolis Hastings algorithm with parallel tempering Markov chain Monte Carlo. This implementation is a generalised version of the algorithm outlined by <a href="https://arxiv.org/pdf/1205.1076.pdf" class="external-link">Miasojedow et al. 2012</a>.</p>
+</div>
+<div class="section level1">
+<div class="page-header"><h1 id="ptmc-parallel-tempering-markov-chain-monte-carlo-for-discrete-spaces">ptmc: Parallel Tempering Markov Chain Monte Carlo for Discrete Spaces<a class="anchor" aria-label="anchor" href="#ptmc-parallel-tempering-markov-chain-monte-carlo-for-discrete-spaces"></a>
+</h1></div>
+<p><strong><code>ptmc</code></strong> is an R package designed to perform Bayesian inference using a <strong>Parallel Tempering Markov Chain Monte Carlo (PT-MCMC)</strong> algorithm. This implementation allows efficient exploration of <strong>discrete parameter spaces</strong>, making it especially useful for models where standard MCMC techniques struggle with multimodal posteriors or slow convergence. This implementation is a generalised version of the algorithm outlined by <a href="https://arxiv.org/pdf/1205.1076.pdf" class="external-link">Miasojedow et al. 2012</a>.</p>
+<div class="section level2">
+<h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
+</h2>
+<ul>
+<li>Implements a <strong>Metropolis-Hastings algorithm</strong> with parallel tempering for enhanced sampling efficiency.</li>
+<li>Supports <strong>arbitrary user-defined likelihood and prior functions</strong> , enabling application to a wide range of models.</li>
+<li>Designed to effectively sample from <strong>complex posterior distributions</strong> with multiple modes.</li>
+<li>Parallelized execution across chains for improved performance.</li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="why-use-parallel-tempering">Why Use Parallel Tempering?<a class="anchor" aria-label="anchor" href="#why-use-parallel-tempering"></a>
+</h2>
+<p>Standard MCMC techniques can become inefficient when dealing with posterior distributions that:</p>
+<ul>
+<li>Have multiple modes (e.g., distinct peaks in probability).</li>
+<li>Feature complex discrete spaces where local exploration struggles to reach distant areas of high probability.</li>
+</ul>
+<p>Parallel tempering mitigates these challenges by running multiple chains at different “temperatures.” High-temperature chains explore the parameter space more broadly, while low-temperature chains focus on precise posterior estimation. Occasional exchanges between chains help the algorithm escape local optima and improve convergence.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -99,17 +122,17 @@
 <p>After installation, you can load the serojump package into your R session with:</p>
 <pre><code><span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">ptmc</span><span class="op">)</span></span></code></pre>
-</div>
-</div>
-<div class="section level2">
-<h2 id="background">Background<a class="anchor" aria-label="anchor" href="#background"></a>
-</h2>
 <p>See background/ptmc.pdf.</p>
 </div>
+</div>
 <div class="section level2">
-<h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
+<h2 id="getting-started">Getting Started<a class="anchor" aria-label="anchor" href="#getting-started"></a>
 </h2>
-<p>We offer several examples of how to implement this package. - Case 1: A simple implementation with a continuous space of parameters</p>
+<p>We offer several examples of how to implement this package.</p>
+<ul>
+<li>Case 1: A simple implementation with a continuous space of parameters</li>
+<li>Case 2: Negronis all round: simulation recovery of a discrete model 🍹</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
@@ -120,8 +143,7 @@
 <li>Open an issue on the repository.</li>
 </ul>
 <p>If you have any questions or feedback, or would like more informative vignettes, you can contact the package maintainer at:</p>
-<p><strong>David Hodgson</strong><br>
-Email: <a href="mailto:david.hodgson@lshtm.ac.uk">david.hodgson@lshtm.ac.uk</a></p>
+<p><strong>David Hodgson</strong> Email: <a href="mailto:david.hodgson@lshtm.ac.uk">david.hodgson@lshtm.ac.uk</a></p>
 <hr>
 </div>
 <div class="section level2">
@@ -130,6 +152,7 @@ Email: <a href="mailto:david.hodgson@lshtm.ac.uk">david.hodgson@lshtm.ac.uk</a><
 <p>This package is actively maintained and in a stable, usable state. New features and improvements are continually being developed.</p>
 </div>
 </div>
+
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">

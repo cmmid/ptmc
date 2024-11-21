@@ -2,9 +2,14 @@
 <url><loc>/404.html</loc></url>
 <url><loc>/LICENSE-text.html</loc></url>
 <url><loc>/articles/Example1.html</loc></url>
+<url><loc>/articles/Example2.html</loc></url>
 <url><loc>/articles/index.html</loc></url>
 <url><loc>/authors.html</loc></url>
 <url><loc>/index.html</loc></url>
+<url><loc>/reference/check_settings.html</loc></url>
+<url><loc>/reference/check_settings_discete.html</loc></url>
+<url><loc>/reference/get_discrete_output.html</loc></url>
+<url><loc>/reference/get_output.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/ptmc-package.html</loc></url>
 <url><loc>/reference/ptmc_discrete_func.html</loc></url>
