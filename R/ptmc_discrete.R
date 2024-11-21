@@ -1,24 +1,50 @@
-#' @useDynLib ptmc
-#' @importFrom Rcpp sourceCpp
-#' @import coda
-#' @import parallel
-#' @import tidyr
-#' @import dplyr
-#' @import foreach
-#' @import doParallel
-#' @importFrom magrittr %>% %<>%
-NULL
 
-
-
-#' Create a model
+#' Parallel Tempering Monte Carlo for Discrete Model
 #'
-#' @param model The model to run ptmc.
-#' @param data Data used in the calibration process
-#' @param settings settings
-#' @param par parameters from previous run
-#' @return Returns a list with the fist element being the mcmc samples formatting for analysis and plottig with the CODA package. The second is the log posterior value at each time step.
+#' This function runs the Parallel Tempering Monte Carlo (PTMC) simulation for a discrete model. It 
+#' checks and validates the settings, and if the parameter list is empty, it initializes the parameters 
+#' with default values. The function then calls the `get_discrete_output` function to perform the actual 
+#' simulation and return the results.
 #'
+#' @param model A list representing the model, which contains necessary information for running the 
+#'              PTMC. This could include the model structure, parameter names, and other model-specific 
+#'              settings.
+#'
+#' @param data A list containing the data required for running the model. This might include observed 
+#'             data, priors, or any other inputs that the model requires to perform the simulation.
+#'
+#' @param settings A list of settings for the PTMC simulation. The list must include the following:
+#'   - \code{numberChainRuns}: The number of chains to run in parallel.
+#'   - Other settings relevant for running the PTMC simulation, which will be validated using the 
+#'     \code{check_settings_discete} function.
+#'
+#' @param par (Optional) A list of parameters for the chains. If provided, each element should correspond 
+#'            to the parameters for one chain. If not provided (or empty), default parameters will be used.
+#'
+#' @return A list containing the results of the PTMC simulation. The structure of the returned list will
+#'         depend on the result of the `get_discrete_output` function, which includes:
+#'   - \code{mcmc}: An MCMC object with posterior samples of the model parameters.
+#'   - \code{discrete}: A list of discrete states generated during the simulation for each chain.
+#'   - \code{lpost}: A data frame of log-posterior values, with columns representing different chains 
+#'                  and rows representing samples.
+#'   - \code{temp}: A data frame of temperatures for each chain at each sample.
+#'   - \code{acc}: A data frame of acceptance rates for each chain at each sample.
+#'   - \code{outPTpar}: A list containing the parameter values for each chain.
+#'
+#' @examples
+#' # Example usage of ptmc_discrete_func function
+#' settings <- list(
+#'   numberChainRuns = 4,
+#'   runParallel = TRUE
+#' )
+#' model <- list(namesOfParameters = c("param1", "param2"))
+#' data <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
+#' result <- ptmc_discrete_func(model, data, settings)
+#'
+#' @importFrom dplyr gather
+#' @importFrom coda mcmc
+#' @importFrom parallel mclapply
+#' 
 #' @export
 ptmc_discrete_func <- function(model, data, settings, par = NULL) {
     settings <- check_settings_discete(settings, model)
@@ -32,6 +58,57 @@ ptmc_discrete_func <- function(model, data, settings, par = NULL) {
   output
 }
 
+
+#' Get Discrete Output from PTMC Model
+#'
+#' This function runs multiple Markov Chains in parallel or sequentially to generate output from a 
+#' Parallel Tempering Monte Carlo (PTMC) model. The output includes the posterior parameter samples,
+#' discrete state information, log posterior values, temperatures, and acceptance rates.
+#'
+#' @param model A list representing the model containing information such as parameter names and any 
+#'              model-specific settings required for running the PTMC.
+#' 
+#' @param data_list A list containing the data necessary for running the model. This could include 
+#'                  observed data, priors, and any other variables needed for the simulation.
+#' 
+#' @param settings A list containing the settings for the model execution. The list must contain:
+#'                 - \code{numberChainRuns}: The number of chains to run in parallel.
+#'                 - \code{runParallel}: A boolean indicating whether to run the chains in parallel (TRUE)
+#'                   or sequentially (FALSE).
+#'                 - \code{numberFittedPar}: The number of parameters to fit in the model.
+#' 
+#' @param update_ind An index or flag used to control which part of the model or data to update
+#'                   during the PTMC simulation.
+#' 
+#' @param par A list of parameters or starting values for the chains. Each element corresponds to 
+#'            one chain.
+#'
+#' @return A list containing the results of the PTMC simulation. The list includes:
+#'   \item{mcmc}{An MCMC object containing the posterior samples of the model parameters.}
+#'   \item{discrete}{A list of discrete states generated during the simulation for each chain.}
+#'   \item{lpost}{A data frame of log-posterior values, with columns representing different chains 
+#'                and rows representing samples.}
+#'   \item{temp}{A data frame of temperatures for each chain at each sample.}
+#'   \item{acc}{A data frame of acceptance rates for each chain at each sample.}
+#'   \item{outPTpar}{A list containing the parameter values for each chain.}
+#'
+#' @examples
+#' # Example usage of get_discrete_output function
+#' settings <- list(
+#'   numberChainRuns = 4,
+#'   runParallel = TRUE,
+#'   numberFittedPar = 2
+#' )
+#' model <- list(namesOfParameters = c("param1", "param2"))
+#' data_list <- list(data1 = c(1, 2, 3), data2 = c(4, 5, 6))
+#' par <- list(list(param1 = 0.1, param2 = 0.2), list(param1 = 0.3, param2 = 0.4), 
+#'             list(param1 = 0.5, param2 = 0.6), list(param1 = 0.7, param2 = 0.8))
+#' update_ind <- 1
+#' result <- get_discrete_output(model, data_list, settings, update_ind, par)
+#'
+#' @importFrom dplyr gather
+#' @importFrom coda mcmc
+#' @importFrom parallel mclapply
 get_discrete_output <- function(model, data_list, settings, update_ind, par) {
 
   outPTpost <- vector(mode = "list", length = settings[["numberChainRuns"]])
@@ -100,6 +177,66 @@ get_discrete_output <- function(model, data_list, settings, update_ind, par) {
   output
 }
 
+#' Check and Set Default Values for PTMC Settings
+#'
+#' This function checks the provided settings list for missing values and assigns default values where necessary. 
+#' It ensures that all required settings for the Parallel Tempering Monte Carlo (PTMC) simulation are specified 
+#' and provides appropriate defaults if any are missing. The function also validates specific parameters by checking 
+#' the model for any necessary attributes.
+#'
+#' @param settings A list of settings for the PTMC simulation. The function checks and fills missing settings with
+#'                 default values. The following settings can be provided:
+#'   - `numberChainRuns`: The number of chains to run in parallel.
+#'   - `numberCores`: The number of CPU cores to use for parallel processing (default is equal to `numberChainRuns`).
+#'   - `numberTempChains`: The number of temperature chains for the Parallel Tempering (default is 10).
+#'   - `iterations`: The number of iterations for each chain (default is 20,000).
+#'   - `burninPosterior`: The burn-in period for posterior samples (default is 10,000).
+#'   - `thin`: The thinning interval for samples (default is 100).
+#'   - `consoleUpdates`: The frequency of console updates (default is 100).
+#'   - `numberFittedPar`: The number of parameters to fit in the model. If not specified, it is set to the length 
+#'                         of `model$namesOfParameters`.
+#'   - `onAdaptiveCov`: Whether to use adaptive covariance updates (default is TRUE).
+#'   - `updatesAdaptiveCov`: The frequency of updates for the adaptive covariance (default is 100).
+#'   - `burninAdaptiveCov`: The burn-in period for adaptive covariance updates (default is 2,000).
+#'   - `onAdaptiveTemp`: Whether to use adaptive temperature updates (default is TRUE).
+#'   - `updatesAdaptiveTemp`: The frequency of updates for adaptive temperature (default is 10).
+#'   - `onDebug`: Whether to enable debugging output (default is FALSE).
+#'   - `lowerParBounds`: The lower bounds for the parameters. If not specified, it is set to `model$lowerParSupport_fitted`.
+#'   - `upperParBounds`: The upper bounds for the parameters. If not specified, it is set to `model$upperParSupport_fitted`.
+#'   - `covarInitVal`: The initial covariance value (default is 1e-10).
+#'   - `covarInitValAdapt`: The initial adaptive covariance value (default is 1e-10).
+#'   - `covarMaxVal`: The maximum allowed covariance value (default is 1).
+#'   - `runParallel`: Whether to run the simulation in parallel (default is TRUE).
+#'   - `lengthDiscreteVec`: The length of the discrete vector, which should be specified as `model$discrete_length`.
+#'   - `updateDiscreteFreq`: The frequency at which to update the discrete vector (default is 0).
+#'
+#' @param model A list representing the model used in the PTMC simulation. The function checks if specific model-related
+#'              attributes are available to fill in missing settings (e.g., `lowerParSupport_fitted`, `upperParSupport_fitted`, 
+#'              and `discrete_length`).
+#'
+#' @return A list of validated and updated settings. If any setting was missing or invalid, the corresponding default 
+#'         value is filled in, and a message is printed to the console.
+#'
+#' @examples
+#' # Example usage of check_settings_discete function
+#' model <- list(
+#'   namesOfParameters = c("param1", "param2"),
+#'   lowerParSupport_fitted = c(-5, -5),
+#'   upperParSupport_fitted = c(5, 5),
+#'   discrete_length = 10
+#' )
+#' settings <- list(
+#'   numberChainRuns = 4,
+#'   numberCores = 4,
+#'   numberTempChains = 10,
+#'   iterations = 20000,
+#'   burninPosterior = 10000,
+#'   thin = 100
+#' )
+#' validated_settings <- check_settings_discete(settings, model)
+#' 
+#' @importFrom utils cat
+#' @export
 check_settings_discete <- function(settings, model) {
   if (is.null(settings[["numberChainRuns"]])) {
     settings[["numberChainRuns"]] <- 4
