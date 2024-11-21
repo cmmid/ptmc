@@ -416,6 +416,7 @@ namespace ptmc_discrete{
                 (this->workingIteration%thin == 0) &&
                 (this->workingChainNumber == 0)) {
                 int m = 0;
+
               //  int l = this->posteriorSamplesLength;
                 for (int p = 0; p < this->numberFittedPar; p++)
                     this->posteriorOut(this->counterPosterior[m], p) = this->currentSample(m, p);
@@ -423,10 +424,11 @@ namespace ptmc_discrete{
                 this->posteriorOut(this->counterPosterior[m], this->numberFittedPar) = this->currentLogPosterior(m);
                 this->posteriorOut(this->counterPosterior[m], this->numberFittedPar+1) = this->temperatureLadder[m];
                 this->posteriorOut(this->counterPosterior[m], this->numberFittedPar+2) = (double)this->counterAccepted[m]/(double)this->counterFuncEval[m];
-                this->counterPosterior[m]++;
 
                 for (int j = 0; j < this->lengthDiscreteVec; j++)
                     this->posteriorDiscrete(this->counterPosterior[m], j) = this->currentDiscrete(m, j);
+
+                this->counterPosterior[m]++;
             }
         }
         
