@@ -1,5 +1,9 @@
 ## Parallel Tempering Markov Chain Monte Carlo
 
+![](./man/figures/ptmc_ai.png)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![R-CMD-check](https://github.com/seroanalytics/serojump/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/seroanalytics/serojump/actions/workflows/R-CMD-check.yaml)
+
 # ptmc: Parallel Tempering Markov Chain Monte Carlo for Discrete Spaces
 
 **`ptmc`** is an R package designed to perform Bayesian inference using a **Parallel Tempering Markov Chain Monte Carlo (PT-MCMC)** algorithm. This implementation allows efficient exploration of  **discrete parameter spaces**, making it especially useful for models where standard MCMC techniques struggle with multimodal posteriors or slow convergence. This implementation is a generalised version of the algorithm outlined by [Miasojedow et al. 2012](https://arxiv.org/pdf/1205.1076.pdf).

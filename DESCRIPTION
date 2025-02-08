@@ -1,5 +1,5 @@
 Package: ptmc
-Title: A general-purpose package to run parallel tempering mcmc with continuou discrete data
+Title: A general-purpose package to run parallel tempering mcmc with continuous discrete data
 Version: 0.1.0
 Authors@R: 
     person("David", "Hodgson", , "david.hodgson@lshtm.ac.uk", role = c("aut", "cre"))

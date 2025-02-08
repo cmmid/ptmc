@@ -234,8 +234,12 @@ check_settings <- function(settings, model) {
     settings[["consoleUpdates"]] <- 100
     cat("`consoleUpdates` not specified in settings. Default value 100. \n")
   }
-  if (is.null(settings[["numberFittedPar"]])) {
-    stop("`numberFittedPar` not specified in settings. MUST be specified. \n")
+ if (is.null(settings[["numberFittedPar"]])) {
+    if (is.null(model$namesOfParameters)) {
+      stop("`numberFittedPar` not specified in settings. MUST be specified. \n")
+    } 
+    settings[["numberFittedPar"]] <- length(model$namesOfParameters)
+    cat("`numberFittedPar` not specified in settings. Default value equal to the number of parameters in the model ", length(model$namesOfParameters), ". \n")
   }
   if (is.null(settings[["onAdaptiveCov"]])) {
         settings[["onAdaptiveCov"]] <- TRUE

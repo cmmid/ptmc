@@ -1,10 +1,10 @@
 ---
-title: "Negronis all round: simulation recovery of a discrete model 🍹"
+title: "Determining seropositivity from cross-sectional serological data"
 author: "David Hodgson"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Negronis all round: simulation recovery of a discrete model 🍹}
+  %\VignetteIndexEntry{Determining seropositivity from cross-sectional serological data}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,13 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-This vignette demonstrates how to recover a discrete latent variable model using simulated data on daily weather conditions and associated Negroni sales. The weather per day is a latent variable ($W$) that can take one of three states:
-
-* Sunny ☀️, 
-* Cloudy ☁️
-* Rainy 💧
-
-and each state has its own distribution of Negroni sales 🍹. We’ll show how to infer the weather state for each day based on observed Negroni sales using a probabilistic modeling framework.
+This vignette demonstrates how to recover a discrete latent variable model xx We’ll show how to infer the weather state for each day based on observed Negroni sales using a probabilistic modeling framework.
 
 ## 1. Relevant packages 
 
@@ -44,12 +38,12 @@ if (.Platform$OS.type == "windows") {
 
 ```
 
-## 2. Simulated data
+## 2. Simulated serological data
 
 We simulate the dataset as follows:
 
-Each day of a month has an unobserved ("latent") weather state ($W_i \in ${\🌧️, ☁️, ☀️ }). We assume each weather is equally likely to happen on each day. 
-For each weather condition, we have a different distribution of Negroni sales each day $Y_i$ which we assume follows:
+Each individual has an unobserved ("latent") seropositivity state ($Z_i \in ${0 = uninfected, 1 = infected}). 
+For each positivity state we assume the distribution of titre values is as follows
 
 * Sunny ☀️: $Y_i \sim \text{Poisson}(\lambda = 20)$
 * Cloudy ☁️: $Y_i \sim \text{Poisson}(\lambda = 10)$

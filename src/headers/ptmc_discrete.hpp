@@ -397,7 +397,7 @@ namespace ptmc_discrete{
             if(std::isnan(this->proposedLogPosterior) || std::isinf(this->proposedLogPosterior))
                 this->alpha = 0;
             else
-                this->alpha = min(1.0, exp((this->proposedLogPosterior - this->currentLogPosterior[this->workingChainNumber])/this->temperatureLadder[this->workingChainNumber]));
+                this->alpha = MIN(1.0, exp((this->proposedLogPosterior - this->currentLogPosterior[this->workingChainNumber])/this->temperatureLadder[this->workingChainNumber]));
         }
         
         void updateSampleAndLogPosterior()
@@ -555,7 +555,7 @@ namespace ptmc_discrete{
             if(std::isnan(this->currentLogPosterior[q] - this->currentLogPosterior[p]))
                 alphaTemp = 0;
             else
-                alphaTemp = min(1.0, exp((this->currentLogPosterior[q] - this->currentLogPosterior[p])*(1.0/this->temperatureLadder[p]-1.0/this->temperatureLadder[q])));
+                alphaTemp = MIN(1.0, exp((this->currentLogPosterior[q] - this->currentLogPosterior[p])*(1.0/this->temperatureLadder[p]-1.0/this->temperatureLadder[q])));
             
             return alphaTemp;
         }
